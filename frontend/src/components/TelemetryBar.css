@@ -1,0 +1,52 @@
+/* ============================================================
+   PhysioAI Pro V2 — TelemetryBar styles
+   ============================================================ */
+
+.telem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 10px 14px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.telem::-webkit-scrollbar { display: none; }
+
+.telem__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  padding: 4px 16px;
+  border-right: 1px solid var(--c-line);
+}
+.telem__item:last-child { border-right: none; }
+.telem__item:first-child { padding-left: 0; }
+
+.telem__label { color: var(--c-text-mute); }
+.telem__value {
+  font-size: 12px;
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+.telem__ok   { color: var(--c-good); }
+.telem__warn { color: var(--c-signal); }
+.telem__bad  { color: var(--c-bad); }
+
+/* On narrow screens, force a single row and hide non-essential items
+   so the strip never wraps to a second visual line. */
+@media (max-width: 540px) {
+  .telem { flex-wrap: nowrap; }
+  .telem__item { padding: 4px 10px; }
+  /* Hide SENT (5th) and SERVER FPS (4th) — bookkeeping only */
+  .telem__item:nth-child(4),
+  .telem__item:nth-child(5) { display: none; }
+}
+
+@media (max-width: 380px) {
+  /* Drop CLIENT FPS too at very small widths */
+  .telem__item:nth-child(3) { display: none; }
+}

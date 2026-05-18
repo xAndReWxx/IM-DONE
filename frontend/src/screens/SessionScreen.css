@@ -1,0 +1,387 @@
+/* ============================================================
+   PhysioAI Pro V2 — SessionScreen styles
+   ============================================================
+   Two-column desktop layout, one-column mobile. CSS Grid handles
+   the row stacking; flexbox handles the inner panels.
+   ============================================================ */
+
+.session {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding:
+    max(12px, var(--safe-top))
+    max(16px, var(--safe-right))
+    max(12px, var(--safe-bottom))
+    max(16px, var(--safe-left));
+  background: var(--c-bg);
+  overflow-y: auto;
+}
+
+/* ── Top bar ── */
+.session__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--c-line);
+  position: sticky;
+  top: 0;
+  background: var(--c-bg);
+  z-index: 10;
+}
+
+.session__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;           /* ≥44px touch target height */
+  min-height: 44px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.session__back:hover {
+  color: var(--c-text);
+  border-color: var(--c-line-bright);
+  background: var(--c-surface-2);
+}
+.session__back-arrow { font-family: var(--font-mono); font-size: 16px; }
+
+.session__brand-name {
+  color: var(--c-text);
+  letter-spacing: 0.32em;
+  font-weight: 700;
+}
+
+.session__voice {
+  padding: 10px 14px;           /* ≥44px touch target */
+  min-height: 44px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-mute);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.session__voice:hover { color: var(--c-text); }
+.session__voice--on {
+  color: var(--c-good);
+  border-color: rgba(155,196,165,0.35);
+  background: rgba(155,196,165,0.06);
+}
+
+/* ── Main grid (camera + side panels) ── */
+.session__main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 14px;
+  min-height: 380px;
+}
+
+/* iPad portrait/landscape */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .session__main {
+    grid-template-columns: 1fr 300px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .session__main { grid-template-columns: 1fr; }
+}
+
+.session__camera-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  max-height: 70vh;
+  min-height: 320px;
+}
+
+/* iPad: keep 4:3 aspect ratio at a comfortable size */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .session__camera-wrap {
+    aspect-ratio: 4/3;
+    max-height: 55vh;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  .session__camera-wrap {
+    aspect-ratio: 4/3;
+    max-height: 45vh;
+    min-height: 260px;
+  }
+}
+
+.session__side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  /* On mobile, lay the gauge and feedback side-by-side so the
+     side column doesn't push the recommendations off-screen.
+     Hide the gauge entirely below ~540px. */
+  .session__side {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+}
+
+@media (max-width: 540px) {
+  .session__side {
+    grid-template-columns: 1fr;
+  }
+  .session__side .session__panel {
+    display: none;
+  }
+}
+
+.session__panel {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+/* Camera-error overlay (e.g. permission denied) */
+.session__cam-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 10, 10, 0.85);
+  border-radius: var(--r-md);
+  text-align: center;
+  padding: 24px;
+}
+.session__cam-error-msg {
+  color: var(--c-text-dim);
+  font-size: 13px;
+  max-width: 320px;
+}
+.session__cam-retry {
+  margin-top: 6px;
+  padding: 10px 16px;
+  min-height: 44px;             /* touch target */
+  border: 1px solid var(--c-line-bright);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+  transition: background 120ms ease;
+}
+.session__cam-retry:hover { background: var(--c-surface-2); }
+
+/* ── 360° Scan UI ── */
+
+/* "Start Scanning" button — idle state */
+.session__scan-idle {
+  display: flex;
+}
+.session__scan-start {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 16px;
+  background: var(--c-signal-soft);
+  border: 1px solid var(--c-signal-line);
+  border-radius: var(--r-md);
+  color: var(--c-signal);
+  letter-spacing: 0.22em;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.session__scan-start:hover {
+  background: rgba(245,176,66,0.18);
+  transform: translateY(-1px);
+}
+.session__scan-start:active { transform: translateY(0); }
+
+/* Active scan card */
+.session__scan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-md);
+}
+
+.session__scan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session__scan-phase {
+  color: var(--c-signal);
+  letter-spacing: 0.22em;
+}
+
+.session__scan-countdown {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--c-text);
+  letter-spacing: 0;
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+.session__scan-instruction {
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-text-dim);
+  line-height: 1.55;
+}
+
+/* Progress dots (one per scan direction) */
+.session__scan-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.session__scan-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-line-strong);
+  transition: background 200ms ease, transform 200ms ease;
+}
+.session__scan-dot--done {
+  background: var(--c-good);
+}
+.session__scan-dot--active {
+  background: var(--c-signal);
+  transform: scale(1.35);
+}
+
+/* Complete state */
+.session__scan-complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(155,196,165,0.07);
+  border: 1px solid rgba(155,196,165,0.25);
+  border-radius: var(--r-md);
+}
+.session__scan-complete-label {
+  color: var(--c-good);
+  letter-spacing: 0.2em;
+}
+.session__scan-reset {
+  padding: 8px 12px;
+  min-height: 36px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  transition: background 120ms ease, color 120ms ease;
+}
+.session__scan-reset:hover {
+  color: var(--c-text);
+  background: var(--c-surface-2);
+}
+
+/* ── Calibration status panel (side panel) ── */
+.session__cal-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-signal-line);
+  border-radius: var(--r-md);
+  animation: cal-status-slide 250ms ease both;
+}
+
+@keyframes cal-status-slide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.session__cal-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session__cal-status-state {
+  color: var(--c-signal);
+  letter-spacing: 0.2em;
+  font-size: 10px;
+}
+
+.session__cal-status-progress {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+.session__cal-status-bar {
+  height: 4px;
+  background: var(--c-line-strong);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.session__cal-status-fill {
+  height: 100%;
+  background: var(--c-good);
+  border-radius: var(--r-pill);
+  transition: width 400ms ease;
+}
+
+.session__cal-status-guidance {
+  margin: 0;
+  font-size: 11px;
+  color: var(--c-text-dim);
+  line-height: 1.5;
+}
+
+/* ── Recommendations strip ── */
+.session__recs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.session__recs-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.session__sep {
+  flex: 1;
+  height: 1px;
+  background: var(--c-line);
+}
+.session__recs-count { color: var(--c-text-mute); }
+
+.session__recs-empty {
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--r-md);
+  color: var(--c-text-mute);
+}
+
+.session__recs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+

@@ -1,0 +1,66 @@
+/* ============================================================
+   PhysioAI Pro V2 — FeedbackPanel styles
+   ============================================================ */
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.feedback__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feedback__sep {
+  flex: 1;
+  height: 1px;
+  background: var(--c-line);
+}
+.feedback__lang { color: var(--c-text-mute); }
+
+.feedback__text {
+  font-family: var(--font-ar);
+  font-size: clamp(20px, 3.4vw, 32px);
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+  color: var(--c-text);
+  min-height: 1.45em;          /* prevent layout jump while empty */
+  animation: feedback-fade 280ms ease;
+}
+
+@keyframes feedback-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.feedback__issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--c-line);
+}
+.feedback__issues-empty { color: var(--c-good); letter-spacing: 0.24em; }
+
+.feedback__issue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--c-signal-soft);
+  border: 1px solid var(--c-signal-line);
+  border-radius: var(--r-pill);
+  color: var(--c-signal);
+  letter-spacing: 0.2em;
+}
+.feedback__issue-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--c-signal);
+}

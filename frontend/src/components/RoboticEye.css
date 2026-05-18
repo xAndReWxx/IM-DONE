@@ -1,0 +1,159 @@
+/* ============================================================
+   PhysioAI Pro V2 — RoboticEye styles
+   ============================================================
+   All visual decisions for the eye are in this file. The
+   component itself is geometry only.
+
+   Width is controlled by the parent (.landing__stage sets
+   each eye to min(38vmin, 240px)). The .eye class here only
+   handles layout & display — no hard-coded width.
+
+   The left and right eye use slightly offset blink delays so
+   they don't blink in perfect sync (more lifelike).
+   ============================================================ */
+
+.eye {
+  position: relative;
+  /* Size comes from parent; we only lock the aspect ratio here */
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Whole-eye blink animation — every ~5 seconds the eye scaleY's down. */
+.eye__blink {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 50%;
+  animation: eye-blink 5s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+}
+
+/* Left eye blinks with no delay (reference). */
+.eye--left .eye__blink {
+  animation-delay: 0s;
+}
+
+/* Right eye blinks ~0.7s later — desynchronised, not mirrored. */
+.eye--right .eye__blink {
+  animation-delay: 0.7s;
+}
+
+@keyframes eye-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.06); }
+  97%           { transform: scaleY(1); }
+}
+
+.eye__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── Outer bezel rings ── */
+.eye__bezel-outer {
+  fill: none;
+  stroke: var(--c-line-bright);
+  stroke-width: 1;
+}
+.eye__bezel-mid {
+  fill: none;
+  stroke: var(--c-line);
+  stroke-width: 0.5;
+}
+
+/* ── Tick marks slowly rotate. Major ticks longer + brighter. ── */
+.eye__ticks {
+  transform-origin: 200px 200px;
+  animation: eye-ticks-spin 40s linear infinite;
+}
+@keyframes eye-ticks-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.eye__tick {
+  stroke: var(--c-line);
+  stroke-width: 0.5;
+}
+.eye__tick--major {
+  stroke: var(--c-line-strong);
+  stroke-width: 1;
+}
+
+/* ── Sclera (the "white" of the eye, but obviously not white) ── */
+.eye__sclera {
+  fill: #050505;
+}
+.eye__sclera-stroke {
+  fill: none;
+  stroke: var(--c-line-strong);
+  stroke-width: 0.5;
+}
+
+/* ── Iris ── */
+.eye__iris {
+  fill: #0e0e0e;
+}
+.eye__iris-stroke {
+  fill: none;
+  stroke: var(--c-line-bright);
+  stroke-width: 0.5;
+}
+
+/* Aperture lines fanning out from the pupil. */
+.eye__aperture line {
+  stroke: var(--c-line);
+  stroke-width: 0.5;
+}
+
+/* ── Pupil ── */
+.eye__pupil {
+  fill: #000;
+  stroke: var(--c-text);
+  stroke-width: 0.5;
+}
+
+/* Specular highlight — the touch of life. */
+.eye__highlight {
+  fill: var(--c-text);
+  opacity: 0.92;
+}
+.eye__highlight--small {
+  opacity: 0.55;
+}
+
+/* Mono labels around the rim. */
+.eye__label {
+  fill: var(--c-text-mute);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+}
+
+/* Optional scanning beam — horizontal hairline drifting up and down. */
+.eye__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 50%;
+  mask-image: radial-gradient(circle at center, #000 60%, transparent 64%);
+  -webkit-mask-image: radial-gradient(circle at center, #000 60%, transparent 64%);
+}
+.eye__scan::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-line-bright), transparent);
+  animation: eye-scan 6s linear infinite;
+}
+@keyframes eye-scan {
+  0%   { top: 10%; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 90%; opacity: 0; }
+}

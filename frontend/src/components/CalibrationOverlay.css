@@ -1,0 +1,431 @@
+/* ============================================================
+   PhysioAI Pro V2 — CalibrationOverlay styles
+   ============================================================
+   Full-screen overlay for the AI-guided calibration system.
+   Uses the same industrial design language as the rest of the
+   app. Smooth animations, no jarring transitions.
+   ============================================================ */
+
+.cal-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 5;
+  border-radius: var(--r-md);
+  /* Subtle gradient overlay for readability */
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 10, 0.65) 0%,
+    rgba(10, 10, 10, 0.05) 35%,
+    rgba(10, 10, 10, 0.05) 65%,
+    rgba(10, 10, 10, 0.7) 100%
+  );
+  animation: cal-fade-in 300ms ease both;
+}
+
+@keyframes cal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Make interactive elements clickable */
+.cal-overlay button,
+.cal-overlay a { pointer-events: auto; }
+
+/* ── Header ── */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cal-header__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cal-header__icon {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-sm);
+  backdrop-filter: blur(8px);
+}
+
+.cal-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-header__state {
+  color: var(--c-text);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-size: 11px;
+}
+
+.cal-header__phase {
+  color: var(--c-signal);
+  font-size: 10px;
+}
+
+.cal-header__stop {
+  pointer-events: auto;
+  padding: 8px 14px;
+  min-height: 36px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-sm);
+  color: var(--c-bad);
+  background: rgba(10, 10, 10, 0.5);
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.18em;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cal-header__stop:hover {
+  background: rgba(217, 122, 108, 0.15);
+  border-color: var(--c-bad);
+}
+
+/* ── Center area (readiness + orientation) ── */
+.cal-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  align-self: center;
+  animation: cal-pulse-in 400ms ease both;
+}
+
+@keyframes cal-pulse-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Readiness arc */
+.cal-readiness {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.cal-readiness__svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.cal-readiness__arc {
+  transition: stroke-dashoffset 300ms ease, stroke 300ms ease;
+}
+
+.cal-readiness__value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-text);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* Orientation indicator */
+.cal-orientation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+}
+
+.cal-orientation__arrow {
+  font-size: 28px;
+  color: var(--c-signal);
+  animation: cal-arrow-pulse 1.5s ease-in-out infinite;
+  text-shadow: 0 0 12px rgba(245, 176, 66, 0.4);
+}
+
+@keyframes cal-arrow-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
+.cal-orientation__progress {
+  width: 80px;
+  height: 4px;
+  background: var(--c-line-strong);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.cal-orientation__bar {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width 200ms ease, background 200ms ease;
+}
+
+/* ── Bottom panel ── */
+.cal-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+
+/* Guidance messages */
+.cal-guidance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-guidance__msg {
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-text-dim);
+  line-height: 1.5;
+  transition: color 200ms ease;
+}
+
+.cal-guidance__msg--primary {
+  color: var(--c-text);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* Scan progress */
+.cal-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cal-progress__step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 200ms ease;
+}
+
+.cal-progress__dot {
+  font-size: 12px;
+  color: var(--c-text-mute);
+  transition: color 200ms ease, transform 200ms ease;
+}
+
+.cal-progress__step--done .cal-progress__dot {
+  color: var(--c-good);
+}
+
+.cal-progress__step--active .cal-progress__dot {
+  color: var(--c-signal);
+  transform: scale(1.3);
+  animation: cal-dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes cal-dot-pulse {
+  0%, 100% { opacity: 0.8; }
+  50%      { opacity: 1; }
+}
+
+.cal-progress__label {
+  font-size: 9px;
+  color: var(--c-text-mute);
+}
+
+.cal-progress__step--done .cal-progress__label {
+  color: var(--c-good);
+}
+
+.cal-progress__step--active .cal-progress__label {
+  color: var(--c-signal);
+}
+
+.cal-progress__count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--c-text-dim);
+}
+
+/* Metrics bar */
+.cal-metrics {
+  display: flex;
+  gap: 14px;
+}
+
+.cal-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-metric__label {
+  font-size: 8px;
+  color: var(--c-text-mute);
+  letter-spacing: 0.15em;
+}
+
+.cal-metric__bar {
+  height: 4px;
+  background: var(--c-line-strong);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.cal-metric__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width 250ms ease, background 250ms ease;
+  min-width: 2px;
+}
+
+/* ── Phase captured flash ── */
+.cal-captured-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 32px;
+  background: rgba(155, 196, 165, 0.15);
+  border: 1px solid rgba(155, 196, 165, 0.4);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(16px);
+  animation: cal-flash 1.2s ease both;
+  pointer-events: none;
+}
+
+.cal-captured-flash__icon {
+  font-size: 32px;
+  color: var(--c-good);
+}
+
+.cal-captured-flash__text {
+  color: var(--c-good);
+  letter-spacing: 0.2em;
+  font-size: 11px;
+}
+
+@keyframes cal-flash {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+}
+
+/* ── Complete overlay ── */
+.cal-complete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(12px);
+  border-radius: var(--r-md);
+  animation: cal-fade-in 400ms ease both;
+}
+
+.cal-complete__icon {
+  font-size: 48px;
+  color: var(--c-good);
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--c-good);
+  border-radius: 50%;
+  animation: cal-check-pop 500ms ease both 200ms;
+}
+
+@keyframes cal-check-pop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.cal-complete__text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-text);
+  letter-spacing: 0.05em;
+}
+
+.cal-complete__sub {
+  color: var(--c-text-dim);
+  font-size: 10px;
+}
+
+/* ── Processing overlay ── */
+.cal-processing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: var(--r-md);
+}
+
+.cal-processing__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--c-line-strong);
+  border-top-color: var(--c-signal);
+  border-radius: 50%;
+  animation: cal-spin 800ms linear infinite;
+}
+
+@keyframes cal-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cal-processing__text {
+  color: var(--c-text-dim);
+  letter-spacing: 0.2em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 540px) {
+  .cal-readiness {
+    width: 72px;
+    height: 72px;
+  }
+  .cal-readiness__value {
+    font-size: 16px;
+  }
+  .cal-bottom {
+    padding: 10px 12px;
+  }
+  .cal-metrics {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

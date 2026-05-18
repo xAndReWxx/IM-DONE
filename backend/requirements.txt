@@ -1,0 +1,40 @@
+# ============================================================
+# PhysioAI Pro V2 — Backend Dependencies
+# ============================================================
+# This is the FULL set: web framework + realtime + computer vision.
+# The backend embeds the AI pipeline directly (no separate
+# ai-engine microservice), so MediaPipe + OpenCV + NumPy live here.
+# ============================================================
+
+# --- Core Framework ---
+fastapi==0.115.12              # Async web framework
+uvicorn[standard]==0.34.3      # ASGI server (uvloop + httptools)
+python-dotenv==1.1.0           # .env file loader
+
+# --- Data Validation ---
+pydantic==2.11.2               # Type-checked data models
+pydantic-settings==2.9.1       # .env-aware settings
+
+# --- WebSocket & Async ---
+websockets==15.0.1             # WebSocket protocol
+
+# --- Logging ---
+structlog==25.3.0              # Structured / JSON logs
+rich==14.0.0                   # Pretty terminal output
+
+# --- HTTP / ASGI helpers ---
+starlette==0.46.2              # Ships with FastAPI; pinned for safety
+
+# --- Computer Vision pipeline ---
+mediapipe==0.10.35             # Pose detection (Tasks API)
+opencv-python-headless==4.11.0.86  # JPEG decode (headless build = no GUI deps)
+numpy==2.2.6                   # Array math
+Pillow==11.2.1                 # Image validation helper
+
+# --- Testing ---
+pytest==8.4.0
+pytest-asyncio==1.0.0
+httpx==0.28.1                  # Async HTTP client for tests
+
+# --- Dev convenience ---
+watchfiles==1.0.5              # uvicorn --reload backend

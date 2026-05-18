@@ -1,0 +1,92 @@
+/* ============================================================
+   PhysioAI Pro V2 — ExerciseCardView styles
+   ============================================================ */
+
+.xcard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  transition: background 160ms ease, border-color 160ms ease, transform 100ms ease;
+  cursor: pointer;
+}
+.xcard:hover {
+  background: var(--c-surface-2);
+  border-color: var(--c-line-strong);
+}
+.xcard:active { transform: scale(0.995); }
+
+.xcard--active {
+  background: var(--c-surface-2);
+  border-color: var(--c-text);
+  box-shadow: 0 0 0 1px var(--c-text) inset;
+}
+
+.xcard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.xcard__names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.xcard__name-ar {
+  font-family: var(--font-ar);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.xcard__name-en {
+  color: var(--c-text-mute);
+}
+
+.xcard__meta {
+  font-size: 11px;
+  color: var(--c-text-dim);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.xcard__meta-sep {
+  margin: 0 4px;
+  color: var(--c-text-mute);
+}
+
+.xcard__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.xcard__step {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-ar);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-text-dim);
+}
+.xcard__step-num {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--c-text-mute);
+  padding-top: 2px;
+}
+.xcard__step-text { flex: 1; }
+
+.xcard__footer {
+  padding-top: 10px;
+  border-top: 1px dashed var(--c-line);
+}
+.xcard--active .xcard__footer .label { color: var(--c-text); }

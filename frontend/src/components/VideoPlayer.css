@@ -1,0 +1,43 @@
+/* ============================================================
+   PhysioAI Pro V2 — VideoPlayer styles
+   ============================================================ */
+
+.videoplayer {
+  width: 100%;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.videoplayer__video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Placeholder shown when the video 404s */
+.videoplayer--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  border-style: dashed;
+}
+
+.videoplayer__placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+}
+
+.videoplayer__placeholder-name {
+  font-size: 12px;
+  color: var(--c-text-mute);
+  text-align: center;
+}

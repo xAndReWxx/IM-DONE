@@ -1,0 +1,132 @@
+/* ============================================================
+   PhysioAI Pro V2 — Global Styles & Design Tokens
+   ============================================================
+   AESTHETIC DIRECTION: Industrial instrument panel.
+     • Deep charcoal (#0a0a0a) as the dominant surface
+     • Bone white (#f4f1ea, never pure #fff) for text/strokes
+     • Steel grays for hierarchy
+     • Single amber accent for alerts (warning-lamp feel)
+     • Hairline strokes (0.5–1px) over thick borders
+     • All-caps mono for labels/telemetry
+     • Manrope for body, JetBrains Mono for data, Cairo for Arabic
+
+   This is deliberately NOT the default "cyan glow on dark blue"
+   AI aesthetic. Think aircraft cockpit, not Tron.
+   ============================================================ */
+
+:root {
+  /* Surfaces (top → bottom of the page hierarchy) */
+  --c-bg:          #0a0a0a;     /* deepest background */
+  --c-surface-1:  #111111;      /* one step up */
+  --c-surface-2:  #1a1a1a;      /* panels */
+  --c-surface-3:  #242424;      /* hover / active */
+
+  /* Strokes */
+  --c-line:        rgba(244,241,234,0.08);
+  --c-line-strong: rgba(244,241,234,0.18);
+  --c-line-bright: rgba(244,241,234,0.35);
+
+  /* Text */
+  --c-text:       #f4f1ea;      /* bone white */
+  --c-text-dim:   #a8a39a;      /* steel */
+  --c-text-mute:  #6e6b65;      /* graphite */
+
+  /* Single accent: signal amber (warning lamp). Used SPARINGLY. */
+  --c-signal:        #f5b042;
+  --c-signal-soft:  rgba(245,176,66,0.12);
+  --c-signal-line:  rgba(245,176,66,0.45);
+
+  /* Status colors — kept dim, like instrument LEDs */
+  --c-good:    #9bc4a5;
+  --c-warn:    var(--c-signal);
+  --c-bad:     #d97a6c;
+
+  /* Type system */
+  --font-display: "Manrope", -apple-system, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --font-ar:      "Cairo", "Manrope", system-ui, sans-serif;
+
+  /* Sizes */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* Safe areas (for iPhone notch / Android gestures) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ----- Reset / base ----- */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-display);
+  font-feature-settings: "ss01", "ss02", "tnum";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+/* Custom scrollbar so panels feel "engineered" not browser-default */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-line-strong);
+  border-radius: var(--r-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--c-line-bright); }
+
+/* RTL is required because Arabic feedback flows right→left */
+[dir="rtl"] { font-family: var(--font-ar); }
+
+/* Utility classes used across screens */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum", "zero";
+  letter-spacing: 0.02em;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--c-text-mute);
+}
+
+.hairline {
+  background: var(--c-line);
+  height: 1px;
+  width: 100%;
+}

@@ -1,0 +1,68 @@
+/* ============================================================
+   PhysioAI Pro V2 — RepCounter styles
+   ============================================================ */
+
+.reps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.reps__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reps__reset {
+  color: var(--c-text-mute);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: color 120ms ease, background 120ms ease;
+}
+.reps__reset:hover {
+  color: var(--c-text);
+  background: var(--c-surface-3);
+}
+
+.reps__value {
+  font-size: 56px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+}
+
+.reps__phase {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--c-line);
+}
+.reps__phase-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c-text-mute);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+.reps__phase-ar {
+  margin-left: auto;
+  font-family: var(--font-ar);
+  font-size: 14px;
+  color: var(--c-text-dim);
+}
+
+/* Phase-specific colors */
+.reps--idle      .reps__phase-dot { background: var(--c-text-mute); }
+.reps--active    .reps__phase-dot { background: var(--c-good); box-shadow: 0 0 0 3px rgba(155,196,165,0.18); }
+.reps--hold      .reps__phase-dot { background: var(--c-signal); box-shadow: 0 0 0 3px rgba(245,176,66,0.18); animation: hold-pulse 1s ease-in-out infinite; }
+.reps--returning .reps__phase-dot { background: var(--c-text); }
+
+@keyframes hold-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.25); }
+}

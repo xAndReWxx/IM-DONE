@@ -1,0 +1,261 @@
+/* ============================================================
+   PhysioAI Pro V2 — LandingScreen styles
+   ============================================================
+   Layout strategy: CSS Grid with four rows
+     [auto]   topbar
+     [1fr]    eye stage (eats remaining space)
+     [auto]   hero + CTA
+     [auto]   telemetry footer
+
+   The eye stage shows TWO eyes side by side, each
+   min(38vmin, 240px) in size with ~40px gap between them.
+   ============================================================ */
+
+.landing {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 0;
+  overflow: hidden;
+  background: var(--c-bg);
+  padding:
+    max(16px, var(--safe-top))
+    max(20px, var(--safe-right))
+    max(16px, var(--safe-bottom))
+    max(20px, var(--safe-left));
+}
+
+/* ── Subtle dotted grid background ── */
+.landing__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(244,241,234,0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Soft vignette to push content toward center */
+.landing__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at center, transparent 30%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* All children sit above the background */
+.landing > *:not(.landing__grid):not(.landing__vignette) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Topbar ── */
+.landing__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--c-line);
+  padding: 0 4px 14px 4px;
+  margin-bottom: 8px;
+}
+.landing__topbar-left,
+.landing__topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.landing__topbar-right {
+  font-size: 12px;
+  color: var(--c-text-dim);
+  letter-spacing: 0.18em;
+}
+.landing__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.landing__brand-name {
+  color: var(--c-text);
+  letter-spacing: 0.32em;
+  font-weight: 700;
+}
+.landing__brand-version {
+  color: var(--c-text-mute);
+}
+
+/* Pulsing status dot */
+.landing__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-good);
+  box-shadow: 0 0 0 0 rgba(155, 196, 165, 0.5);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(155, 196, 165, 0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(155, 196, 165, 0); }
+}
+
+/* ── Eye stage — two eyes side by side ── */
+.landing__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  min-height: 0;
+  padding: 16px 0;
+}
+
+/* Each eye: sized smaller so both fit side by side comfortably */
+.landing__stage .eye {
+  width: min(38vmin, 240px);
+  flex-shrink: 0;
+}
+
+/* Corner brackets that frame the eyes like a viewfinder */
+.landing__bracket {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-color: var(--c-line-bright);
+  border-style: solid;
+  border-width: 0;
+}
+.landing__bracket--tl { top: 0;    left: 0;    border-top-width: 1px; border-left-width:  1px; }
+.landing__bracket--tr { top: 0;    right: 0;   border-top-width: 1px; border-right-width: 1px; }
+.landing__bracket--bl { bottom: 0; left: 0;    border-bottom-width: 1px; border-left-width:  1px; }
+.landing__bracket--br { bottom: 0; right: 0;   border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ── Hero copy ── */
+.landing__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 22px 0 18px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.landing__hero-eyebrow {
+  margin: 0;
+}
+.landing__title {
+  font-family: var(--font-display);
+  font-weight: 200;
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.landing__title em {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.landing__subtitle {
+  color: var(--c-text-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 460px;
+}
+
+/* ── CTA button — wide, slab, sliding underline ── */
+.landing__cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 16px 28px;
+  background: var(--c-text);
+  color: var(--c-bg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 200ms ease;
+  box-shadow: 0 0 0 1px var(--c-line-bright);
+}
+.landing__cta:hover {
+  transform: translateY(-1px);
+  background: #fff;
+  box-shadow: 0 12px 32px -8px rgba(244, 241, 234, 0.45);
+}
+.landing__cta:active { transform: translateY(0); }
+.landing__cta-arrow {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+  transition: transform 200ms ease;
+}
+.landing__cta:hover .landing__cta-arrow { transform: translateX(4px); }
+
+/* ── Bottom telemetry strip ── */
+.landing__telemetry {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 4px 0 4px;
+  border-top: 1px solid var(--c-line);
+  margin-top: 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.landing__telemetry::-webkit-scrollbar { display: none; }
+
+.landing__telem-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: nowrap;
+}
+.landing__telem-label { color: var(--c-text-mute); }
+.landing__telem-value {
+  color: var(--c-text);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+/* iPad-specific tweaks (two-eyes fit well in 768-1024px range) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .landing__stage .eye {
+    width: min(34vmin, 220px);
+  }
+  .landing__stage {
+    gap: 32px;
+  }
+}
+
+/* Mobile tweaks: shrink subtitle + hide non-essential telemetry */
+@media (max-width: 540px) {
+  .landing { padding-inline: 16px; }
+  .landing__title { font-size: clamp(24px, 7vw, 32px); }
+  .landing__subtitle { display: none; }
+  .landing__bracket { width: 22px; height: 22px; }
+  .landing__brand-version { display: none; }
+  .landing__telem-item:nth-child(3) { display: none; }
+  .landing__stage {
+    gap: 20px;
+  }
+  .landing__stage .eye {
+    width: min(36vmin, 160px);
+  }
+}
+
+@media (max-width: 380px) {
+  .landing__telem-item:nth-child(4) { display: none; }
+  .landing__stage .eye {
+    width: min(34vmin, 140px);
+  }
+}

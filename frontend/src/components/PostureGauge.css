@@ -1,0 +1,79 @@
+/* ============================================================
+   PhysioAI Pro V2 — PostureGauge styles
+   ============================================================ */
+
+.gauge {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 240px;
+}
+
+.gauge__svg {
+  width: 100%;
+  height: auto;
+}
+
+.gauge__arc {
+  fill: none;
+  stroke: var(--c-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.gauge__arc-fill {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke 250ms ease;
+}
+
+.gauge--off  .gauge__arc-fill { stroke: var(--c-line-strong); }
+.gauge--good .gauge__arc-fill { stroke: var(--c-good); }
+.gauge--warn .gauge__arc-fill { stroke: var(--c-signal); }
+.gauge--bad  .gauge__arc-fill { stroke: var(--c-bad); }
+
+.gauge__tick {
+  stroke: var(--c-line);
+  stroke-width: 1;
+}
+.gauge__tick--major {
+  stroke: var(--c-line-strong);
+  stroke-width: 1.2;
+}
+
+.gauge__pivot {
+  fill: var(--c-text);
+}
+
+.gauge__needle {
+  stroke: var(--c-text);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.gauge__readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: -10px;
+}
+.gauge__value {
+  font-size: 36px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+  transition: color 250ms ease;
+}
+.gauge--good .gauge__value { color: var(--c-good); }
+.gauge--warn .gauge__value { color: var(--c-signal); }
+.gauge--bad  .gauge__value { color: var(--c-bad); }
+
+.gauge__label {
+  color: var(--c-text-mute);
+}
