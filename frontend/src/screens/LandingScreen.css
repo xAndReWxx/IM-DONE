@@ -166,30 +166,43 @@
   max-width: 460px;
 }
 
-/* ── CTA button — wide, slab, sliding underline ── */
+/* ── CTA button — wide, slab, pulsing glow ── */
 .landing__cta {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 14px;
   margin-top: 8px;
-  padding: 16px 28px;
+  padding: 18px 36px;
   background: var(--c-text);
   color: var(--c-bg);
   font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.32em;
+  font-size: 14px;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   border-radius: var(--r-sm);
   transition: transform 120ms ease, box-shadow 120ms ease, background 200ms ease;
   box-shadow: 0 0 0 1px var(--c-line-bright);
+  overflow: hidden;
+}
+.landing__cta-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 28px 6px rgba(155, 196, 165, 0.35);
+  animation: cta-pulse 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cta-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
 }
 .landing__cta:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   background: #fff;
-  box-shadow: 0 12px 32px -8px rgba(244, 241, 234, 0.45);
+  box-shadow: 0 14px 40px -8px rgba(244, 241, 234, 0.5);
 }
 .landing__cta:active { transform: translateY(0); }
 .landing__cta-arrow {
@@ -199,7 +212,7 @@
   line-height: 1;
   transition: transform 200ms ease;
 }
-.landing__cta:hover .landing__cta-arrow { transform: translateX(4px); }
+.landing__cta:hover .landing__cta-arrow { transform: translateX(5px); }
 
 /* ── Bottom telemetry strip ── */
 .landing__telemetry {

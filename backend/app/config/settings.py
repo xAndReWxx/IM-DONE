@@ -79,8 +79,11 @@ class Settings(BaseSettings):
     )
 
     # ── CORS ──
+    # Includes both HTTP and HTTPS origins for local development.
+    # The wildcard (*) covers tablet access via local network IPs
+    # (e.g. https://192.168.1.x:5173).
     cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173,http://localhost:8080,*",
+        default="http://localhost:3000,http://localhost:5173,https://localhost:5173,http://localhost:8080,*",
         description="Comma-separated allowed origins (use * for offline dev)",
     )
 

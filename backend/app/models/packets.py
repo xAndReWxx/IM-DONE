@@ -13,13 +13,11 @@ WIRE CONTRACT (must stay in lockstep with the frontend)
         • {type:"select_exercise", exercise_id}      — switch tracked exercise
         • {type:"reset_reps"}                        — zero rep counter
         • {type:"heartbeat"}                         — keep-alive
-        • {type:"start_scan"}                        — begin 360° scan
-        • {type:"scan_phase_data", phase, landmarks} — per-phase scan data
 
     SERVER → CLIENT
         • {type:"connected", client_id, config}   — handshake reply
         • {type:"pose_result", ...}               — main per-frame payload
-        • {type:"scan_result", ...}               — 360° scan analysis
+        • {type:"scan_result", ...}               — front scan analysis
         • {type:"error", code, message}           — structured error
         • {type:"heartbeat", server_time}         — keep-alive pong
 
@@ -45,8 +43,6 @@ class PacketType(str, Enum):
     SELECT_EXERCISE = "select_exercise"
     RESET_REPS = "reset_reps"
     HEARTBEAT = "heartbeat"
-    START_SCAN = "start_scan"
-    SCAN_PHASE_DATA = "scan_phase_data"
     START_CALIBRATION = "start_calibration"
     STOP_CALIBRATION = "stop_calibration"
     # Server → Client
@@ -145,18 +141,6 @@ class HeartbeatPacket(BaseModel):
         return v
 
 
-class StartScanPacket(BaseModel):
-    """Signal that the client wants to begin a 360° posture scan."""
-    type: str = Field(..., description="Must be 'start_scan'")
-
-    @field_validator("type")
-    @classmethod
-    def _type(cls, v: str) -> str:
-        if v != PacketType.START_SCAN.value:
-            raise ValueError(f"Expected 'start_scan', got '{v}'")
-        return v
-
-
 class StartCalibrationPacket(BaseModel):
     """Signal that the client wants to begin AI-guided calibration."""
     type: str = Field(..., description="Must be 'start_calibration'")
@@ -179,25 +163,6 @@ class StopCalibrationPacket(BaseModel):
         if v != PacketType.STOP_CALIBRATION.value:
             raise ValueError(f"Expected 'stop_calibration', got '{v}'")
         return v
-
-
-class ScanPhaseDataPacket(BaseModel):
-    """Landmark snapshot for one scan phase (front, right, left, back, neutral)."""
-    type: str = Field(..., description="Must be 'scan_phase_data'")
-    phase: str = Field(..., description="Scan phase name: neutral|front|right|left|back")
-    landmarks: List[List[float]] = Field(
-        default_factory=list,
-        description="List of [x, y, z, visibility] rows (up to 33 points)",
-    )
-
-    @field_validator("type")
-    @classmethod
-    def _type(cls, v: str) -> str:
-        if v != PacketType.SCAN_PHASE_DATA.value:
-            raise ValueError(f"Expected 'scan_phase_data', got '{v}'")
-        return v
-
-
 # ============================================================
 # SERVER → CLIENT
 # ============================================================

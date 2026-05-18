@@ -14,8 +14,14 @@ MESSAGE TYPES SUPPORTED (CLIENT → SERVER)
     select_exercise   — switch the tracked exercise
     reset_reps        — zero the current rep counter
     heartbeat         — keep-alive ping; we reply with a pong
-    start_scan        — begin a 360° posture scan
-    scan_phase_data   — landmark snapshot for one scan phase
+    start_calibration — begin AI-guided posture scan
+    stop_calibration  — stop/reset calibration
+    set_mode          — switch AI mode (idle/exercise_tracking)
+
+AI MODES
+    idle               — landmarks only, no analysis (after scan completes)
+    posture_analysis   — calibration scan active
+    exercise_tracking  — exercise validation active
 
 ERROR PHILOSOPHY
     A single bad message must not kill the connection. The loop
@@ -41,8 +47,7 @@ from app.models.packets import (
     HeartbeatPacket,
     SelectExercisePacket,
     ResetRepsPacket,
-    StartScanPacket,
-    ScanPhaseDataPacket,
+    ResetRepsPacket,
     StartCalibrationPacket,
     StopCalibrationPacket,
     PacketType,
@@ -191,10 +196,6 @@ async def _process_message(raw_message: str, client_id: str) -> None:
         await _handle_reset_reps(data, client_id)
     elif packet_type == PacketType.HEARTBEAT.value:
         await _handle_heartbeat(data, client_id)
-    elif packet_type == PacketType.START_SCAN.value:
-        await _handle_start_scan(data, client_id)
-    elif packet_type == PacketType.SCAN_PHASE_DATA.value:
-        await _handle_scan_phase_data(data, client_id)
     elif packet_type == PacketType.START_CALIBRATION.value:
         await _handle_start_calibration(data, client_id)
     elif packet_type == PacketType.STOP_CALIBRATION.value:
@@ -250,16 +251,11 @@ async def _handle_frame(data: dict, client_id: str) -> None:
         cal_update = controller.process(cal_landmarks)
         await connection_manager.send_json(client_id, cal_update.to_dict())
 
-        # If a phase was just captured, store it in the AI engine.
-        if cal_update.phase_just_captured and cal_update.captured_landmarks:
-            ai_engine.store_scan_phase(
-                client_id,
-                cal_update.phase_just_captured,
-                cal_update.captured_landmarks,
-            )
+        # If front scan was captured, store it and run analysis.
+        if cal_update.scan_captured and cal_update.captured_landmarks:
+            ai_engine.store_scan_phase(client_id, "front", cal_update.captured_landmarks)
 
-        # If calibration reached PROCESSING state, run 360° analysis.
-        if cal_update.state == "processing" and ai_engine.scan_buffer_complete(client_id):
+            # Run posture analysis on the captured scan.
             scan_result = await ai_engine.analyze_360_scan(client_id)
             await connection_manager.send_json(client_id, scan_result)
             logger.info("calibration_scan_result_sent", client_id=client_id)
@@ -270,6 +266,11 @@ async def _handle_frame(data: dict, client_id: str) -> None:
 
             # Remove controller — calibration is done.
             _calibration_controllers.pop(client_id, None)
+
+            # ── STOP posture analysis — switch to idle mode ──
+            from app.services.ai_engine import AI_MODE_IDLE
+            ai_engine.set_mode(client_id, AI_MODE_IDLE)
+            logger.info("calibration_complete_mode_idle", client_id=client_id)
 
 
 async def _handle_select_exercise(data: dict, client_id: str) -> None:
@@ -298,32 +299,6 @@ async def _handle_heartbeat(data: dict, client_id: str) -> None:
     })
 
 
-async def _handle_start_scan(data: dict, client_id: str) -> None:
-    """Acknowledge the scan start; the client drives the phase flow."""
-    StartScanPacket(**data)
-    # Reset any accumulated scan buffer for this client.
-    ai_engine.reset_scan_buffer(client_id)
-    logger.info("scan_started", client_id=client_id)
-
-
-async def _handle_scan_phase_data(data: dict, client_id: str) -> None:
-    """
-    Store one phase's landmarks in the scan buffer.
-    When all four directional phases have been received, run the
-    full-body analysis and send back a scan_result.
-    """
-    pkt = ScanPhaseDataPacket(**data)
-    ai_engine.store_scan_phase(client_id, pkt.phase, pkt.landmarks)
-
-    logger.debug("scan_phase_received", client_id=client_id, phase=pkt.phase)
-
-    # Check if we have enough phases to analyze.
-    if ai_engine.scan_buffer_complete(client_id):
-        result = await ai_engine.analyze_360_scan(client_id)
-        await connection_manager.send_json(client_id, result)
-        logger.info("scan_result_sent", client_id=client_id)
-
-
 async def _handle_start_calibration(data: dict, client_id: str) -> None:
     """
     Start the AI-guided calibration pipeline.
@@ -335,6 +310,10 @@ async def _handle_start_calibration(data: dict, client_id: str) -> None:
     # Reset any existing calibration for this client.
     controller = GuidedScanController()
     _calibration_controllers[client_id] = controller
+
+    # Set AI mode to posture analysis for the scan.
+    from app.services.ai_engine import AI_MODE_POSTURE_ANALYSIS
+    ai_engine.set_mode(client_id, AI_MODE_POSTURE_ANALYSIS)
 
     # Also reset the scan buffer in the AI engine.
     ai_engine.reset_scan_buffer(client_id)
@@ -351,4 +330,8 @@ async def _handle_stop_calibration(data: dict, client_id: str) -> None:
     controller = _calibration_controllers.pop(client_id, None)
     if controller:
         controller.reset()
+
+    # Return to idle mode.
+    from app.services.ai_engine import AI_MODE_IDLE
+    ai_engine.set_mode(client_id, AI_MODE_IDLE)
     logger.info("calibration_stopped", client_id=client_id)

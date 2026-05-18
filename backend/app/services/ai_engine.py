@@ -50,6 +50,9 @@ from app.services.ai import (
     recommend_for_issues,
 )
 from app.services.ai.exercises.base import BaseExerciseTracker
+from app.services.exercise_engine.feedback_throttler import FeedbackThrottler
+from app.services.exercise_engine.realtime_tracker import RealtimeMotionTracker
+from app.services.exercise_engine.template_manager import template_manager
 from app.utils.logger import get_logger
 
 
@@ -64,14 +67,20 @@ except ImportError:
     logger.warning("opencv_not_installed")
 
 
-# Phases that count as directional scan data (neutral is warm-up only).
-_SCAN_DATA_PHASES = {"front", "right", "left", "back"}
+# Phases that count as directional scan data (only front now).
+_SCAN_DATA_PHASES = {"front"}
 
 # Exercise correction cooldown seconds (don't spam the user).
 _CORRECTION_COOLDOWN = 3.0
 
 # Angle deviation threshold (degrees) before a correction is issued.
 _CORRECTION_THRESHOLD = 12.0
+
+
+# AI processing modes.
+AI_MODE_IDLE = "idle"                        # landmarks only, no analysis
+AI_MODE_POSTURE_ANALYSIS = "posture_analysis" # calibration + posture scan
+AI_MODE_EXERCISE_TRACKING = "exercise_tracking" # exercise validation
 
 
 class _ClientState:
@@ -81,25 +90,29 @@ class _ClientState:
         "filter",
         "analyzer",
         "tracker",
+        "motion_tracker",
         "fps_ema",
         "last_frame_time",
         "scan_buffer",
         "last_correction_time",
         "last_correction_text",
+        "ai_mode",
+        "feedback_throttler",
     )
 
     def __init__(self) -> None:
         self.filter = LandmarkFilter(alpha=settings.ema_alpha_landmarks)
-        # Per-client PostureAnalyzer so the debounce/smoothing state
-        # is isolated (not shared across connections).
         self.analyzer = PostureAnalyzer()
         self.tracker: Optional[BaseExerciseTracker] = None
+        # AI motion tracker (used when a MotionTemplate is available).
+        self.motion_tracker: Optional[RealtimeMotionTracker] = None
         self.fps_ema: float = 0.0
         self.last_frame_time: float = 0.0
-        # scan_buffer: {phase_name: list of [x,y,z,v] rows}
         self.scan_buffer: Dict[str, List[List[float]]] = {}
         self.last_correction_time: float = 0.0
         self.last_correction_text: str = ""
+        self.ai_mode: str = AI_MODE_IDLE
+        self.feedback_throttler = FeedbackThrottler()
 
 
 class AIEngine:
@@ -127,8 +140,14 @@ class AIEngine:
         if not OPENCV_AVAILABLE:
             logger.warning("ai_engine_init_no_opencv")
         await asyncio.to_thread(self._pose_engine.initialize)
+        # Initialize template manager for AI motion comparison.
+        await template_manager.initialize()
         self._initialized = True
-        logger.info("ai_engine_ready", mediapipe_ready=self._pose_engine.is_ready)
+        logger.info(
+            "ai_engine_ready",
+            mediapipe_ready=self._pose_engine.is_ready,
+            motion_templates=template_manager.available_exercises,
+        )
 
     async def cleanup(self) -> None:
         self._pose_engine.close()
@@ -145,14 +164,43 @@ class AIEngine:
         return state
 
     def select_exercise(self, client_id: str, exercise_id: str) -> bool:
+        """Select an exercise and switch to exercise tracking mode."""
         state = self.get_or_create_state(client_id)
         new_tracker = create_tracker(exercise_id)
         if new_tracker is None:
             logger.warning("unknown_exercise_id", exercise_id=exercise_id)
             return False
         state.tracker = new_tracker
-        logger.info("exercise_selected", client_id=client_id, exercise_id=exercise_id)
+
+        # Try to load an AI motion template for this exercise.
+        template = template_manager.get(exercise_id)
+        if template:
+            state.motion_tracker = RealtimeMotionTracker(template, fps=15.0)
+            logger.info("motion_tracker_created", exercise=exercise_id, mode="ai_template")
+        else:
+            state.motion_tracker = None
+            logger.info("motion_tracker_fallback", exercise=exercise_id, mode="rule_based")
+
+        state.ai_mode = AI_MODE_EXERCISE_TRACKING
+        state.feedback_throttler.reset()
+        logger.info("exercise_selected", client_id=client_id, exercise_id=exercise_id,
+                    mode=AI_MODE_EXERCISE_TRACKING)
         return True
+
+    def set_mode(self, client_id: str, mode: str) -> None:
+        """Switch AI mode for a client."""
+        state = self.get_or_create_state(client_id)
+        state.ai_mode = mode
+        state.feedback_throttler.reset()
+        if mode != AI_MODE_EXERCISE_TRACKING:
+            state.tracker = None
+            state.motion_tracker = None
+        logger.info("ai_mode_changed", client_id=client_id, mode=mode)
+
+    def get_mode(self, client_id: str) -> str:
+        """Get the current AI mode for a client."""
+        state = self._client_state.get(client_id)
+        return state.ai_mode if state else AI_MODE_IDLE
 
     def reset_reps(self, client_id: str) -> None:
         state = self._client_state.get(client_id)
@@ -186,12 +234,13 @@ class AIEngine:
             return False
         return _SCAN_DATA_PHASES.issubset(state.scan_buffer.keys())
 
-    # ── 360° Full-body analysis ──
+    # ── Full-body analysis (Front Only) ──
 
     async def analyze_360_scan(self, client_id: str) -> dict:
         """
-        Run a comprehensive posture analysis from the four captured
-        direction snapshots and return a ScanResultPacket dict.
+        Run a posture analysis from the captured front snapshot
+        and return a ScanResultPacket dict.
+        (Kept method name analyze_360_scan for backwards compat with handler)
         """
         state = self._client_state.get(client_id)
         if state is None:
@@ -203,23 +252,18 @@ class AIEngine:
 
         scan_buffer = state.scan_buffer.copy()
         result = await asyncio.to_thread(
-            self._run_360_analysis, scan_buffer
+            self._run_front_analysis, scan_buffer
         )
         # Clear the buffer after analysis.
         state.scan_buffer = {}
         return result
 
-    def _run_360_analysis(self, scan_buffer: Dict[str, List[List[float]]]) -> dict:
+    def _run_front_analysis(self, scan_buffer: Dict[str, List[List[float]]]) -> dict:
         """
-        CPU-bound 360° analysis. Runs in a thread.
+        CPU-bound front-only analysis. Runs in a thread.
 
         Strategy:
           - Front view: assess forward head, shoulder level, spine lean
-          - Side views (right/left): assess forward head depth, kyphosis
-          - Back view: assess shoulder symmetry, lateral lean
-
-        Since we only have 2D MediaPipe landmarks, we approximate
-        depth cues from the relative positions available in each view.
         """
         issues: List[ScanIssue] = []
         all_issue_types: set = set()
@@ -282,50 +326,10 @@ class AIEngine:
                     severity="severe" if lean > 20 else "moderate",
                 ))
 
-        # ── Side view analysis (use the average of left and right if available) ──
-        right_arr = _to_array(scan_buffer.get("right", []))
-        left_arr  = _to_array(scan_buffer.get("left", []))
-
-        for side_arr in filter(lambda a: a is not None, [right_arr, left_arr]):
-            from app.services.ai.geometry import vertical_angle
-            LM_LEFT_EAR, LM_LEFT_SHOULDER, LM_LEFT_HIP = 7, 11, 23
-            LM_RIGHT_EAR, LM_RIGHT_SHOULDER, LM_RIGHT_HIP = 8, 12, 24
-            # Use whichever side is more visible (higher visibility).
-            if side_arr[LM_LEFT_SHOULDER][3] >= side_arr[LM_RIGHT_SHOULDER][3]:
-                ear, sh, hip = side_arr[LM_LEFT_EAR][:2], side_arr[LM_LEFT_SHOULDER][:2], side_arr[LM_LEFT_HIP][:2]
-            else:
-                ear, sh, hip = side_arr[LM_RIGHT_EAR][:2], side_arr[LM_RIGHT_SHOULDER][:2], side_arr[LM_RIGHT_HIP][:2]
-
-            side_fh = vertical_angle(ear, sh)
-            if side_fh > 35 and "kyphosis_risk" not in all_issue_types:
-                all_issue_types.add("kyphosis_risk")
-                issues.append(ScanIssue(
-                    type="kyphosis_risk",
-                    description=f"Possible thoracic kyphosis visible from the side ({side_fh:.1f}° head forward). Thoracic extension exercises recommended.",
-                    severity="moderate",
-                ))
-            break  # Analyze only once (first valid side view)
-
-        # ── Back view analysis ──
-        back = _to_array(scan_buffer.get("back", []))
-        if back is not None:
-            from app.services.ai.geometry import horizontal_tilt
-            LM_LEFT_SHOULDER, LM_RIGHT_SHOULDER = 11, 12
-            LM_LEFT_HIP, LM_RIGHT_HIP = 23, 24
-            sh_tilt  = horizontal_tilt(back[LM_LEFT_SHOULDER][:2], back[LM_RIGHT_SHOULDER][:2])
-            hip_tilt = horizontal_tilt(back[LM_LEFT_HIP][:2], back[LM_RIGHT_HIP][:2])
-            if abs(sh_tilt - hip_tilt) > 8 and "pelvic_tilt" not in all_issue_types:
-                all_issue_types.add("pelvic_tilt")
-                issues.append(ScanIssue(
-                    type="pelvic_tilt",
-                    description="Possible pelvic tilt detected from the back view. Hip and shoulder lines are not parallel.",
-                    severity="mild",
-                ))
-
         # ── Build recommendations from detected issues ──
         mapped_issues = [i for i in [
             "forward_head" if "forward_head" in all_issue_types else None,
-            "rounded_shoulders" if "kyphosis_risk" in all_issue_types else None,
+            "rounded_shoulders" if "shoulder_asymmetry" in all_issue_types else None,
             "slouching" if "spine_lean" in all_issue_types else None,
         ] if i is not None]
 
@@ -333,7 +337,7 @@ class AIEngine:
 
         # ── Summary ──
         if not issues:
-            summary = "Excellent posture! No significant issues detected across all 4 scan directions."
+            summary = "Excellent posture! No significant issues detected."
         else:
             count = len(issues)
             severity_counts = {"severe": 0, "moderate": 0, "mild": 0}
@@ -401,35 +405,60 @@ class AIEngine:
             # ── Smooth landmarks ──
             smoothed = state.filter.filter(raw_landmarks)
 
-            # ── Posture analysis (per-client instance for proper debouncing) ──
-            posture = state.analyzer.analyze(smoothed)
+            # Common landmark serialization.
+            landmark_dicts = [
+                {"x": float(p[0]), "y": float(p[1]), "z": float(p[2]), "visibility": float(p[3])}
+                for p in smoothed
+            ]
 
-            # ── Recommendations ──
-            recommendations = recommend_for_issues(posture.issues) if posture.issues else []
-
-            # ── Exercise tracking ──
+            # ── MODE-DEPENDENT ANALYSIS ──
+            posture_score = None
+            posture_issues: list = []
+            feedback_ar = ""
+            recommendations: list = []
             rep_state = None
-            if state.tracker is not None:
-                state.tracker.process(smoothed)
-                rep_state = state.tracker.to_rep_state()
-
-            # ── Exercise correction check ──
             exercise_correction: Optional[str] = None
-            if state.tracker is not None:
-                correction = self._check_exercise_correction(state, smoothed, now)
-                if correction:
-                    exercise_correction = correction
 
-            # ── Build response packet ──
+            if state.ai_mode == AI_MODE_POSTURE_ANALYSIS:
+                # Full posture analysis (during calibration scan).
+                posture = state.analyzer.analyze(smoothed)
+                posture_score = posture.score
+                posture_issues = posture.issues
+                feedback_ar = posture.feedback_ar
+                recommendations = recommend_for_issues(posture.issues) if posture.issues else []
+
+            elif state.ai_mode == AI_MODE_EXERCISE_TRACKING:
+                # Exercise tracking only — no posture analysis.
+                if state.motion_tracker is not None:
+                    # ── AI Motion Comparison Mode ──
+                    tracking_result = state.motion_tracker.process(smoothed)
+                    rep_state = {
+                        "exercise_id": state.motion_tracker._template.exercise_id,
+                        "reps": tracking_result.reps,
+                        "phase": tracking_result.phase,
+                        "last_feedback_ar": tracking_result.feedback_ar or "استعداد",
+                        "quality_score": tracking_result.quality_score,
+                        "similarity": tracking_result.similarity,
+                    }
+                    if tracking_result.correction:
+                        exercise_correction = tracking_result.correction
+                    feedback_ar = tracking_result.feedback_ar
+                elif state.tracker is not None:
+                    # ── Fallback: rule-based tracker ──
+                    state.tracker.process(smoothed)
+                    rep_state = state.tracker.to_rep_state()
+                    correction = self._check_exercise_correction(state, smoothed, now)
+                    if correction:
+                        exercise_correction = correction
+
+            # AI_MODE_IDLE: landmarks only, no analysis.
+
             packet = PoseResultPacket(
                 fps=round(state.fps_ema, 1),
-                landmarks=[
-                    {"x": float(p[0]), "y": float(p[1]), "z": float(p[2]), "visibility": float(p[3])}
-                    for p in smoothed
-                ],
-                posture_score=posture.score,
-                posture_issues=posture.issues,
-                feedback_ar=posture.feedback_ar,
+                landmarks=landmark_dicts,
+                posture_score=posture_score,
+                posture_issues=posture_issues,
+                feedback_ar=feedback_ar,
                 recommendations=recommendations,
                 rep_state=rep_state,
                 exercise_correction=exercise_correction,
@@ -459,10 +488,7 @@ class AIEngine:
         """
         Compare the current pose to the active exercise's ideal form.
         Returns an English correction instruction if deviation exceeds
-        the threshold and the cooldown has elapsed.
-
-        Without a loaded exercise dataset we use heuristic checks
-        based on the exercise type (tracker class name).
+        the threshold, respecting cooldowns AND the feedback throttler.
         """
         if state.tracker is None:
             return None
@@ -475,9 +501,12 @@ class AIEngine:
         correction = self._heuristic_correction(exercise_id, smoothed)
 
         if correction and correction != state.last_correction_text:
-            state.last_correction_time = now
-            state.last_correction_text = correction
-            return correction
+            # Run through the throttler for additional spam prevention.
+            allowed = state.feedback_throttler.try_send(correction)
+            if allowed:
+                state.last_correction_time = now
+                state.last_correction_text = correction
+                return correction
 
         return None
 
@@ -527,6 +556,14 @@ class AIEngine:
                 return "Extend your upper back further — open your chest toward the ceiling."
             if fh > 30:
                 return "Keep your head neutral as you extend — don't jut your chin forward."
+
+        elif exercise_id == "shoulder_release":
+            if tilt > 10:
+                return "Keep both shoulders level as you raise your arms — don't tilt."
+            if lean > 12:
+                return "Stand upright — don't lean forward during the arm raise."
+            if fh > 28:
+                return "Keep your head aligned over your shoulders — don't push it forward."
 
         return None
 

@@ -2,7 +2,7 @@
  * PhysioAI Pro V2 — TelemetryBar
  * ============================================================
  * Compact mono strip showing live pipeline numbers. Lives at
- * the top of the SessionScreen so the user can verify the
+ * the top of the ScannerScreen so the user can verify the
  * stream is healthy without leaving the camera.
  *
  * The values are dim by default — this is not a primary UI

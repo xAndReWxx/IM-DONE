@@ -1,30 +1,25 @@
 /* ============================================================
  * PhysioAI Pro V2 — App
  * ============================================================
- * Root component. Owns a single piece of state — which screen
- * we're on — and renders accordingly. No router needed; the
- * app has exactly two views.
+ * Two views:
+ *   landing → click "Start Scanning" → scanner
+ *   scanner → click "EXIT" → landing
  *
- * STATE FLOW
- *   landing → click "Begin session" → session
- *   session → click "EXIT" → landing
- *
- * The SessionScreen unmounts on exit, which tears down the
- * camera stream and WebSocket cleanly via the hooks' cleanup
- * functions.
+ * Camera is lazy-loaded: only the ScannerScreen mounts the
+ * camera hook. Landing is pure UI — zero device access.
  * ============================================================ */
 
 import { useState } from "react";
 import { LandingScreen } from "@/screens/LandingScreen";
-import { SessionScreen } from "@/screens/SessionScreen";
+import { ScannerScreen } from "@/screens/ScannerScreen";
 
-type View = "landing" | "session";
+type View = "landing" | "scanner";
 
 export default function App() {
   const [view, setView] = useState<View>("landing");
 
-  if (view === "session") {
-    return <SessionScreen onBack={() => setView("landing")} />;
+  if (view === "scanner") {
+    return <ScannerScreen onBack={() => setView("landing")} />;
   }
-  return <LandingScreen onStart={() => setView("session")} />;
+  return <LandingScreen onStart={() => setView("scanner")} />;
 }

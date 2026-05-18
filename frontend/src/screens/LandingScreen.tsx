@@ -1,17 +1,15 @@
 /* ============================================================
  * PhysioAI Pro V2 — LandingScreen
  * ============================================================
- * What the user sees first. Layout, top to bottom:
+ * Minimalist, futuristic landing. One action: "Start Scanning".
  *
  *   [ TOP STATUS BAR ]    instrument-style header
- *   [ TWO ROBOTIC EYES ]  left + right, autonomous saccadic gaze
- *   [ HERO TITLE ]        large display type
- *   [ START SESSION ]     primary action
- *   [ TELEMETRY ROW ]     mono ticker at bottom
+ *   [ TWO ROBOTIC EYES ]  autonomous saccadic gaze
+ *   [ HERO COPY ]         headline + subtitle
+ *   [ START SCANNING ]    primary CTA
+ *   [ TELEMETRY ROW ]     mono status ticker
  *
- * The left eye drives the primary gaze from useEyeFocus().
- * The right eye receives a 200ms-delayed copy of the same
- * values, simulating slightly desynchronised bilateral vision.
+ * NO camera access. NO session logic. Pure presentation.
  * ============================================================ */
 
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +22,6 @@ type Props = {
 };
 
 export function LandingScreen({ onStart }: Props) {
-  // Live clock for the top status bar (HH:MM:SS, mono).
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -33,7 +30,7 @@ export function LandingScreen({ onStart }: Props) {
 
   const hms = now.toTimeString().slice(0, 8);
 
-  // Primary autonomous gaze (left eye uses this directly).
+  // Primary autonomous gaze (left eye).
   const primaryGaze = useEyeFocus();
 
   // Secondary gaze: 200ms-delayed copy for the right eye.
@@ -46,13 +43,11 @@ export function LandingScreen({ onStart }: Props) {
       setSecondaryGaze({ ...primaryRef.current });
     }, 200);
     return () => clearTimeout(id);
-  // Re-fire the 200ms delay every time primaryGaze updates.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primaryGaze.x, primaryGaze.y]);
 
   return (
     <main className="landing">
-      {/* Background: ultra-subtle dotted grid for "instrument paper" depth */}
       <div className="landing__grid" aria-hidden />
       <div className="landing__vignette" aria-hidden />
 
@@ -76,7 +71,6 @@ export function LandingScreen({ onStart }: Props) {
         <RoboticEye side="left"  gazeX={primaryGaze.x}   gazeY={primaryGaze.y} />
         <RoboticEye side="right" gazeX={secondaryGaze.x} gazeY={secondaryGaze.y} />
 
-        {/* Crosshair markers — corner brackets framing the eyes */}
         <div className="landing__bracket landing__bracket--tl" aria-hidden />
         <div className="landing__bracket landing__bracket--tr" aria-hidden />
         <div className="landing__bracket landing__bracket--bl" aria-hidden />
@@ -85,32 +79,34 @@ export function LandingScreen({ onStart }: Props) {
 
       {/* ── Hero copy + CTA ── */}
       <section className="landing__hero">
-        <p className="label landing__hero-eyebrow">REALTIME · POSTURE · COACH</p>
+        <p className="label landing__hero-eyebrow">AI · POSTURE · SCANNER</p>
         <h1 className="landing__title">
           stand <em>tall</em>.<br />
           let the machine watch.
         </h1>
         <p className="landing__subtitle">
-          Open your camera. PhysioAI analyzes your posture frame by frame
-          and coaches you back to alignment, in Arabic, offline.
+          One click. PhysioAI scans your posture in real time,
+          detects issues, and recommends corrective exercises — instantly.
         </p>
 
         <button
           type="button"
           className="landing__cta"
           onClick={onStart}
+          id="start-scanning-btn"
         >
-          <span className="landing__cta-label">Begin session</span>
+          <span className="landing__cta-pulse" aria-hidden />
+          <span className="landing__cta-label">Start Scanning</span>
           <span className="landing__cta-arrow" aria-hidden>→</span>
         </button>
       </section>
 
       {/* ── Bottom telemetry strip ── */}
       <footer className="landing__telemetry">
-        <Telemetry label="MODE"      value="OFFLINE" />
-        <Telemetry label="CAMERA"    value="STANDBY" />
-        <Telemetry label="PIPELINE"  value="MEDIAPIPE × FASTAPI" />
-        <Telemetry label="LATENCY"   value="< 80 MS" />
+        <Telemetry label="MODE"     value="FRONT SCAN" />
+        <Telemetry label="CAMERA"   value="STANDBY" />
+        <Telemetry label="PIPELINE" value="MEDIAPIPE × FASTAPI" />
+        <Telemetry label="LATENCY"  value="< 80 MS" />
       </footer>
     </main>
   );

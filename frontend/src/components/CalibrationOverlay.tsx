@@ -1,18 +1,17 @@
 /* ============================================================
- * PhysioAI Pro V2 — CalibrationOverlay
+ * PhysioAI Pro V2 — CalibrationOverlay (Front-Only)
  * ============================================================
  * Renders the AI-guided calibration UI over the camera feed.
- * Shows:
- *   • Current calibration state and guidance
- *   • Body alignment guide (crosshair + centering indicator)
- *   • Orientation indicator with progress ring
+ * Simplified for front-only scanning:
+ *   • Readiness score arc
  *   • Stability meter
  *   • Confidence grade
- *   • Scan progress tracker (4 phases)
- *   • Animated transitions between states
- *   • Readiness score arc
+ *   • Guidance messages
+ *   • Scan captured flash
+ *   • Complete / processing states
  *
- * This component replaces the old timer-based scan card.
+ * No orientation arrows, no multi-phase progress, no
+ * left/right/back prompts.
  * ============================================================ */
 
 import { useEffect, useRef } from "react";
@@ -28,31 +27,14 @@ type Props = {
   onStop: () => void;
 };
 
-const PHASE_LABELS: Record<string, string> = {
-  front: "Front",
-  right: "Right",
-  left: "Left",
-  back: "Back",
-};
-
 const STATE_ICONS: Partial<Record<CalibrationState, string>> = {
   initializing: "⚙",
   body_detection: "👤",
   body_validation: "📐",
   front_scan: "🎯",
-  right_scan: "🎯",
-  left_scan: "🎯",
-  back_scan: "🎯",
   processing: "🧠",
   complete: "✓",
   error: "⚠",
-};
-
-const ORIENTATION_ARROWS: Record<string, string> = {
-  front_facing: "↑",
-  right_profile: "→",
-  left_profile: "←",
-  back_view: "↓",
 };
 
 export function CalibrationOverlay({ calibration, onStop }: Props) {
@@ -70,17 +52,9 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
     }
   }, [calibration.voice_message, speak]);
 
-  const isScanning = [
-    "front_scan",
-    "right_scan",
-    "left_scan",
-    "back_scan",
-  ].includes(calibration.state);
-
+  const isScanning = calibration.state === "front_scan";
   const readinessPercent = Math.round(calibration.readiness_score * 100);
-  const completedCount = calibration.completed_phases.length;
 
-  // Determine color based on state.
   const stateColor =
     calibration.state === "error"
       ? "var(--c-bad)"
@@ -98,16 +72,9 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
           <span className="cal-header__icon" style={{ color: stateColor }}>
             {STATE_ICONS[calibration.state] ?? "●"}
           </span>
-          <div className="cal-header__info">
-            <span className="cal-header__state label">
-              {calibration.state_name.toUpperCase()}
-            </span>
-            {calibration.current_phase && (
-              <span className="cal-header__phase mono">
-                {PHASE_LABELS[calibration.current_phase] ?? calibration.current_phase}
-              </span>
-            )}
-          </div>
+          <span className="cal-header__state label">
+            {calibration.state_name.toUpperCase()}
+          </span>
         </div>
         <button
           type="button"
@@ -118,10 +85,9 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
         </button>
       </div>
 
-      {/* ── Center: Alignment guides + readiness ── */}
+      {/* ── Center: Readiness arc ── */}
       {(calibration.state === "body_validation" || isScanning) && (
         <div className="cal-center">
-          {/* Readiness arc */}
           <div className="cal-readiness">
             <svg viewBox="0 0 120 120" className="cal-readiness__svg">
               <circle
@@ -145,28 +111,6 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
               {readinessPercent}%
             </span>
           </div>
-
-          {/* Orientation indicator */}
-          {isScanning && calibration.required_orientation && (
-            <div className="cal-orientation">
-              <span className="cal-orientation__arrow">
-                {ORIENTATION_ARROWS[calibration.required_orientation] ?? "●"}
-              </span>
-              {calibration.orientation && (
-                <div className="cal-orientation__progress">
-                  <div
-                    className="cal-orientation__bar"
-                    style={{
-                      width: `${calibration.orientation.confirmation_progress * 100}%`,
-                      background: calibration.orientation.is_confirmed
-                        ? "var(--c-good)"
-                        : "var(--c-signal)",
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -182,36 +126,6 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
               {msg}
             </p>
           ))}
-        </div>
-
-        {/* Scan progress dots */}
-        <div className="cal-progress">
-          {(["front", "right", "left", "back"] as const).map((phase) => {
-            const isDone = calibration.completed_phases.includes(phase);
-            const isActive = calibration.current_phase === phase;
-            return (
-              <div
-                key={phase}
-                className={[
-                  "cal-progress__step",
-                  isDone ? "cal-progress__step--done" : "",
-                  isActive ? "cal-progress__step--active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                <span className="cal-progress__dot">
-                  {isDone ? "✓" : isActive ? "●" : "○"}
-                </span>
-                <span className="cal-progress__label label">
-                  {PHASE_LABELS[phase]}
-                </span>
-              </div>
-            );
-          })}
-          <span className="cal-progress__count mono">
-            {completedCount}/4
-          </span>
         </div>
 
         {/* Metrics bar */}
@@ -260,13 +174,11 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
         )}
       </div>
 
-      {/* ── Phase captured flash ── */}
-      {calibration.phase_just_captured && (
+      {/* ── Scan captured flash ── */}
+      {calibration.scan_captured && (
         <div className="cal-captured-flash">
           <span className="cal-captured-flash__icon">✓</span>
-          <span className="cal-captured-flash__text label">
-            {PHASE_LABELS[calibration.phase_just_captured]?.toUpperCase() ?? ""} CAPTURED
-          </span>
+          <span className="cal-captured-flash__text label">SCAN CAPTURED</span>
         </div>
       )}
 
@@ -276,7 +188,7 @@ export function CalibrationOverlay({ calibration, onStop }: Props) {
           <span className="cal-complete__icon">✓</span>
           <span className="cal-complete__text">Scan Complete</span>
           <span className="cal-complete__sub label">
-            All 4 phases captured successfully
+            Posture analysis ready
           </span>
         </div>
       )}

@@ -1,7 +1,7 @@
 /* ============================================================
    PhysioAI Pro V2 — CameraOverlay styles
    ============================================================
-   The camera takes the dominant area of the SessionScreen.
+   The camera takes the dominant area of the ScannerScreen.
    Aspect ratio is 4/3 to match what we request from getUserMedia,
    but it stretches with `object-fit: cover` so the panel always
    feels full.

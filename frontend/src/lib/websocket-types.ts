@@ -10,11 +10,14 @@
 
 /* ----- Landmark (one MediaPipe body point) ----- */
 export type Landmark = {
-  x: number;          // 0..1 normalized (left→right)
-  y: number;          // 0..1 normalized (top→bottom — image conv)
-  z: number;          // relative depth; negative = closer to camera
-  visibility: number; // 0..1 model confidence
+  x: number;
+  y: number;
+  z: number;
+  visibility: number;
 };
+
+/* ----- AI processing modes ----- */
+export type AIMode = "idle" | "posture_analysis" | "exercise_tracking";
 
 /* ----- Posture issue keys emitted by the backend analyzer ----- */
 export type PostureIssue =
@@ -33,12 +36,16 @@ export type ExerciseCard = {
 };
 
 /* ----- Exercise rep tracker state ----- */
-export type RepPhase = "idle" | "active" | "hold" | "returning";
+export type RepPhase = "idle" | "active" | "hold" | "returning" | "rest" | "concentric" | "peak" | "eccentric";
 export type RepState = {
   exercise_id: string;
   reps: number;
   phase: RepPhase;
   last_feedback_ar: string;
+  /** 0–100 movement quality score (from AI motion tracker). */
+  quality_score?: number;
+  /** 0–1 DTW similarity against reference template. */
+  similarity?: number;
 };
 
 /* ----- Server → Client ----- */
@@ -66,7 +73,6 @@ export type PoseResultMessage = {
   rep_state: RepState | null;
   latency_ms: number;
   skipped?: boolean;
-  /** English exercise correction instruction, if any deviation detected. */
   exercise_correction?: string;
 };
 
@@ -83,16 +89,13 @@ export type ScanResultMessage = {
   analysis_summary: string;
 };
 
-/* ----- Calibration system types ----- */
+/* ----- Calibration system types (front-only) ----- */
 export type CalibrationState =
   | "idle"
   | "initializing"
   | "body_detection"
   | "body_validation"
   | "front_scan"
-  | "right_scan"
-  | "left_scan"
-  | "back_scan"
   | "processing"
   | "complete"
   | "error";
@@ -108,12 +111,10 @@ export type BodyValidation = {
   body_center_x: number;
   body_center_y: number;
   body_height_ratio: number;
-  missing_groups: string[];
 };
 
-export type OrientationData = {
-  raw_orientation: string;
-  confirmed_orientation: string;
+export type FrontFacingData = {
+  is_front_facing: boolean;
   is_confirmed: boolean;
   confirmation_progress: number;
   confidence: number;
@@ -130,7 +131,6 @@ export type StabilityData = {
 export type ConfidenceData = {
   overall_confidence: number;
   avg_visibility: number;
-  critical_visibility: number;
   grade: ConfidenceGrade;
   is_acceptable: boolean;
   guidance: string[];
@@ -142,18 +142,14 @@ export type CalibrationUpdateMessage = {
   state_name: string;
   is_active: boolean;
   body_validation: BodyValidation | null;
-  orientation: OrientationData | null;
+  front_facing: FrontFacingData | null;
   stability: StabilityData | null;
   confidence: ConfidenceData | null;
   guidance_messages: string[];
   voice_message: string | null;
-  completed_phases: string[];
-  current_phase: string | null;
-  total_phases: number;
-  required_orientation: string | null;
+  scan_captured: boolean;
   readiness_score: number;
   error_message: string | null;
-  phase_just_captured: string | null;
 };
 
 export type ErrorMessage = {
@@ -181,7 +177,7 @@ export type ServerMessage =
 export type FrameMessage = {
   type: "frame";
   timestamp: number;
-  frame: string; // base64-encoded JPEG bytes
+  frame: string;
 };
 
 export type SelectExerciseMessage = {
@@ -198,16 +194,6 @@ export type ClientHeartbeatMessage = {
   timestamp?: number;
 };
 
-export type StartScanMessage = {
-  type: "start_scan";
-};
-
-export type ScanPhaseDataMessage = {
-  type: "scan_phase_data";
-  phase: string;
-  landmarks: number[][];
-};
-
 export type StartCalibrationMessage = {
   type: "start_calibration";
 };
@@ -221,7 +207,5 @@ export type ClientMessage =
   | SelectExerciseMessage
   | ResetRepsMessage
   | ClientHeartbeatMessage
-  | StartScanMessage
-  | ScanPhaseDataMessage
   | StartCalibrationMessage
   | StopCalibrationMessage;

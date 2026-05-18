@@ -26,6 +26,7 @@ from app.services.ai.exercises.base import (
 from app.services.ai.exercises.chin_tuck import ChinTuckTracker
 from app.services.ai.exercises.wall_angel import WallAngelTracker
 from app.services.ai.exercises.thoracic_extension import ThoracicExtensionTracker
+from app.services.ai.exercises.shoulder_release import ShoulderReleaseTracker
 
 
 # Stable ID → tracker class. Keys must match exercise_catalog.EXERCISES.
@@ -33,6 +34,7 @@ TRACKER_REGISTRY: Dict[str, Type[BaseExerciseTracker]] = {
     "chin_tuck":           ChinTuckTracker,
     "wall_angel":          WallAngelTracker,
     "thoracic_extension":  ThoracicExtensionTracker,
+    "shoulder_release":    ShoulderReleaseTracker,
 }
 
 
@@ -49,6 +51,7 @@ __all__ = [
     "ChinTuckTracker",
     "WallAngelTracker",
     "ThoracicExtensionTracker",
+    "ShoulderReleaseTracker",
     "TRACKER_REGISTRY",
     "create_tracker",
 ]

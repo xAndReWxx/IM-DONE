@@ -1,11 +1,11 @@
 """
 ============================================================
-PhysioAI Pro V2 - Calibration Finite State Machine
+PhysioAI Pro V2 - Calibration FSM (Front-Only)
 ============================================================
 PURPOSE
-    Defines the states and transitions for the Dynamic AI
-    Guided Calibration System. All progression is condition-
-    based — NO fixed timers anywhere.
+    Defines the states and transitions for the simplified
+    front-only calibration system. All multi-orientation
+    states have been removed.
 
 STATES
     IDLE           — waiting for user to start
@@ -14,18 +14,13 @@ STATES
     BODY_VALIDATION— body visible; validating centering,
                      visibility, and confidence
     FRONT_SCAN     — capturing front-facing posture data
-    RIGHT_SCAN     — capturing right-profile data
-    LEFT_SCAN      — capturing left-profile data
-    BACK_SCAN      — capturing back-view data
-    PROCESSING     — all 4 scans captured; running analysis
+    PROCESSING     — scan captured; running analysis
     COMPLETE       — analysis done; results ready
-    ERROR          — unrecoverable issue (e.g. no camera)
+    ERROR          — unrecoverable issue
 
 TRANSITION RULES
     Every transition is guarded by validation conditions
-    evaluated per-frame. The FSM never advances on its own
-    — the controller calls `try_transition()` with the
-    current validation results each frame.
+    evaluated per-frame. The FSM never advances on its own.
 ============================================================
 """
 
@@ -44,29 +39,10 @@ class CalibrationState(str, Enum):
     BODY_DETECTION = "body_detection"
     BODY_VALIDATION = "body_validation"
     FRONT_SCAN = "front_scan"
-    RIGHT_SCAN = "right_scan"
-    LEFT_SCAN = "left_scan"
-    BACK_SCAN = "back_scan"
     PROCESSING = "processing"
     COMPLETE = "complete"
     ERROR = "error"
 
-
-# Which scan states correspond to the 4 directional captures.
-SCAN_CAPTURE_STATES = {
-    CalibrationState.FRONT_SCAN,
-    CalibrationState.RIGHT_SCAN,
-    CalibrationState.LEFT_SCAN,
-    CalibrationState.BACK_SCAN,
-}
-
-# The ordered sequence of scan states after validation passes.
-SCAN_SEQUENCE = [
-    CalibrationState.FRONT_SCAN,
-    CalibrationState.RIGHT_SCAN,
-    CalibrationState.LEFT_SCAN,
-    CalibrationState.BACK_SCAN,
-]
 
 # Human-readable names for each state.
 STATE_NAMES = {
@@ -75,9 +51,6 @@ STATE_NAMES = {
     CalibrationState.BODY_DETECTION: "Detecting Body",
     CalibrationState.BODY_VALIDATION: "Validating Position",
     CalibrationState.FRONT_SCAN: "Front Scan",
-    CalibrationState.RIGHT_SCAN: "Right Scan",
-    CalibrationState.LEFT_SCAN: "Left Scan",
-    CalibrationState.BACK_SCAN: "Back Scan",
     CalibrationState.PROCESSING: "Processing",
     CalibrationState.COMPLETE: "Complete",
     CalibrationState.ERROR: "Error",
@@ -94,21 +67,6 @@ VALID_TRANSITIONS = {
         CalibrationState.ERROR,
     },
     CalibrationState.FRONT_SCAN: {
-        CalibrationState.RIGHT_SCAN,
-        CalibrationState.BODY_DETECTION,
-        CalibrationState.ERROR,
-    },
-    CalibrationState.RIGHT_SCAN: {
-        CalibrationState.LEFT_SCAN,
-        CalibrationState.BODY_DETECTION,
-        CalibrationState.ERROR,
-    },
-    CalibrationState.LEFT_SCAN: {
-        CalibrationState.BACK_SCAN,
-        CalibrationState.BODY_DETECTION,
-        CalibrationState.ERROR,
-    },
-    CalibrationState.BACK_SCAN: {
         CalibrationState.PROCESSING,
         CalibrationState.BODY_DETECTION,
         CalibrationState.ERROR,
@@ -121,10 +79,7 @@ VALID_TRANSITIONS = {
 
 class CalibrationFSM:
     """
-    Finite state machine for the calibration pipeline.
-
-    Thread-safe: all state changes happen through `transition()`,
-    which validates the move before committing.
+    Finite state machine for the front-only calibration pipeline.
     """
 
     def __init__(self) -> None:
@@ -150,7 +105,7 @@ class CalibrationFSM:
 
     @property
     def is_scanning(self) -> bool:
-        return self._state in SCAN_CAPTURE_STATES
+        return self._state == CalibrationState.FRONT_SCAN
 
     @property
     def is_active(self) -> bool:
@@ -163,8 +118,7 @@ class CalibrationFSM:
 
     def transition(self, target: CalibrationState, error_msg: str = "") -> bool:
         """
-        Attempt a state transition. Returns True if the transition
-        was valid and committed, False if it was rejected.
+        Attempt a state transition. Returns True if valid, False if rejected.
         """
         if target not in VALID_TRANSITIONS.get(self._state, set()):
             logger.warning(
@@ -190,22 +144,10 @@ class CalibrationFSM:
         return True
 
     def reset(self) -> None:
-        """Force-reset to IDLE regardless of current state."""
+        """Force-reset to IDLE."""
         self._previous_state = self._state
         self._state = CalibrationState.IDLE
         self._error_message = None
-
-    def next_scan_state(self) -> Optional[CalibrationState]:
-        """
-        Returns the next scan state in the sequence, or None
-        if the current state is BACK_SCAN (final scan).
-        """
-        if self._state not in SCAN_CAPTURE_STATES:
-            return None
-        idx = SCAN_SEQUENCE.index(self._state)
-        if idx < len(SCAN_SEQUENCE) - 1:
-            return SCAN_SEQUENCE[idx + 1]
-        return CalibrationState.PROCESSING
 
     def to_dict(self) -> dict:
         """Serialize FSM state for the wire."""

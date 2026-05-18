@@ -33,5 +33,12 @@ REM Launch each in its own window
 start "PhysioAI backend"  cmd /k "cd /d %BACKEND% && .venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 start "PhysioAI frontend" cmd /k "cd /d %FRONTEND% && npm run dev -- --host 0.0.0.0"
 
+echo.
 echo Backend  : http://localhost:8000
-echo Frontend : http://localhost:5173
+echo Frontend : https://localhost:5173
+echo.
+echo --- TABLET ACCESS ---
+echo Open https://YOUR_LAPTOP_IP:5173 on the tablet
+echo Accept the self-signed certificate warning
+echo Camera + AI scanning will work over HTTPS
+

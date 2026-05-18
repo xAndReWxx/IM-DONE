@@ -57,12 +57,44 @@
 }
 
 /* Phase-specific colors */
-.reps--idle      .reps__phase-dot { background: var(--c-text-mute); }
-.reps--active    .reps__phase-dot { background: var(--c-good); box-shadow: 0 0 0 3px rgba(155,196,165,0.18); }
-.reps--hold      .reps__phase-dot { background: var(--c-signal); box-shadow: 0 0 0 3px rgba(245,176,66,0.18); animation: hold-pulse 1s ease-in-out infinite; }
-.reps--returning .reps__phase-dot { background: var(--c-text); }
+.reps--idle        .reps__phase-dot { background: var(--c-text-mute); }
+.reps--active      .reps__phase-dot { background: var(--c-good); box-shadow: 0 0 0 3px rgba(155,196,165,0.18); }
+.reps--hold        .reps__phase-dot { background: var(--c-signal); box-shadow: 0 0 0 3px rgba(245,176,66,0.18); animation: hold-pulse 1s ease-in-out infinite; }
+.reps--returning   .reps__phase-dot { background: var(--c-text); }
+/* AI motion tracker phases */
+.reps--rest        .reps__phase-dot { background: var(--c-text-mute); }
+.reps--concentric  .reps__phase-dot { background: var(--c-good); box-shadow: 0 0 0 3px rgba(155,196,165,0.18); }
+.reps--peak        .reps__phase-dot { background: var(--c-signal); box-shadow: 0 0 0 3px rgba(245,176,66,0.18); animation: hold-pulse 1s ease-in-out infinite; }
+.reps--eccentric   .reps__phase-dot { background: var(--c-text); }
 
 @keyframes hold-pulse {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.25); }
+}
+
+/* ── AI Quality Scores ── */
+.reps__quality {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--c-line);
+}
+
+.reps__quality-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.reps__quality-label {
+  color: var(--c-text-mute);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.reps__quality-value {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }

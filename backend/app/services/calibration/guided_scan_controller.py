@@ -1,29 +1,27 @@
 """
 ============================================================
-PhysioAI Pro V2 - Guided Scan Controller
+PhysioAI Pro V2 - Guided Scan Controller (Front-Only)
 ============================================================
 PURPOSE
-    The brain of the Dynamic AI Guided Calibration System.
-    Orchestrates the FSM, validators, and detectors into a
-    single per-frame `process()` call that:
-      1. Runs all validators on the current landmarks
+    Orchestrates the front-only calibration pipeline. Single
+    `process()` call per frame that:
+      1. Runs validators on current landmarks
       2. Decides whether to advance the FSM
-      3. Captures scan data when conditions are met
+      3. Captures front scan data when conditions are met
       4. Generates guidance messages and voice prompts
-      5. Returns a complete calibration state update for the WS
+      5. Returns a complete calibration update for the WS
 
-    This is the ONLY class the WebSocket handler needs to
-    interact with — everything else is internal.
+FLOW
+    IDLE → INITIALIZING → BODY_DETECTION → BODY_VALIDATION
+         → FRONT_SCAN → PROCESSING → COMPLETE
 
 VOICE THROTTLING
-    Voice guidance is throttled to prevent spam. Each guidance
-    message has a minimum interval before it can be spoken again.
+    Same guidance message won't repeat within 5 seconds.
 
 FAILURE RECOVERY
-    If the user leaves the frame during a scan, the controller
-    pauses and drops back to BODY_DETECTION, preserving any
-    already-captured phases. The user can resume without losing
-    progress.
+    If the user leaves the frame during FRONT_SCAN, the
+    controller drops back to BODY_DETECTION. The user can
+    resume without losing progress.
 ============================================================
 """
 
@@ -33,97 +31,44 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from app.services.calibration.scan_fsm import (
-    CalibrationState,
-    CalibrationFSM,
-    SCAN_SEQUENCE,
-)
+from app.services.calibration.scan_fsm import CalibrationState, CalibrationFSM
 from app.services.calibration.body_validator import BodyValidator, BodyValidationResult
-from app.services.calibration.orientation_detector import (
-    Orientation,
-    OrientationDetector,
-    OrientationResult,
-)
+from app.services.calibration.orientation_detector import FrontFacingDetector, FrontFacingResult
 from app.services.calibration.stability_detector import StabilityDetector, StabilityResult
 from app.services.calibration.confidence_analyzer import ConfidenceAnalyzer, ConfidenceResult
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-# Map from scan state to required orientation.
-_SCAN_TO_ORIENTATION = {
-    CalibrationState.FRONT_SCAN: Orientation.FRONT_FACING,
-    CalibrationState.RIGHT_SCAN: Orientation.RIGHT_PROFILE,
-    CalibrationState.LEFT_SCAN: Orientation.LEFT_PROFILE,
-    CalibrationState.BACK_SCAN: Orientation.BACK_VIEW,
-}
-
-# Map from scan state to the phase name used in the scan buffer.
-_SCAN_TO_PHASE = {
-    CalibrationState.FRONT_SCAN: "front",
-    CalibrationState.RIGHT_SCAN: "right",
-    CalibrationState.LEFT_SCAN: "left",
-    CalibrationState.BACK_SCAN: "back",
-}
-
-# Voice guidance for each scan state.
-_SCAN_VOICE_GUIDANCE = {
-    CalibrationState.FRONT_SCAN: "Face the camera directly",
-    CalibrationState.RIGHT_SCAN: "Turn your right side to the camera slowly",
-    CalibrationState.LEFT_SCAN: "Turn your left side to the camera slowly",
-    CalibrationState.BACK_SCAN: "Turn your back to the camera",
-}
-
-# Minimum seconds between repeating the same voice guidance.
+# Voice cooldown.
 _VOICE_COOLDOWN = 5.0
-
-# How many frames of "no body" before dropping back to BODY_DETECTION.
+# Frames of "no body" before dropping to BODY_DETECTION.
 _BODY_LOST_THRESHOLD = 15
-
-# Frames to wait in INITIALIZING before moving to BODY_DETECTION.
+# Frames to wait in INITIALIZING.
 _INIT_FRAMES = 5
 
 
 @dataclass
 class CalibrationUpdate:
     """
-    Complete calibration state update sent to the frontend
-    every frame while calibration is active.
+    Complete calibration state sent to the frontend each frame.
     """
-    # FSM state.
     state: str = "idle"
     state_name: str = "Ready"
     is_active: bool = False
 
-    # Validation results.
     body_validation: Optional[dict] = None
-    orientation: Optional[dict] = None
+    front_facing: Optional[dict] = None
     stability: Optional[dict] = None
     confidence: Optional[dict] = None
 
-    # Current guidance.
     guidance_messages: List[str] = field(default_factory=list)
     voice_message: Optional[str] = None
 
-    # Scan progress.
-    completed_phases: List[str] = field(default_factory=list)
-    current_phase: Optional[str] = None
-    total_phases: int = 4
-
-    # Required orientation for current state.
-    required_orientation: Optional[str] = None
-
-    # Readiness score (0–1): how close we are to capturing.
+    scan_captured: bool = False
     readiness_score: float = 0.0
-
-    # Error info.
     error_message: Optional[str] = None
 
-    # When a phase was just captured, this is set.
-    phase_just_captured: Optional[str] = None
-
-    # Captured landmark data (only set when phase_just_captured).
     captured_landmarks: Optional[List[List[float]]] = None
 
     def to_dict(self) -> dict:
@@ -133,18 +78,14 @@ class CalibrationUpdate:
             "state_name": self.state_name,
             "is_active": self.is_active,
             "body_validation": self.body_validation,
-            "orientation": self.orientation,
+            "front_facing": self.front_facing,
             "stability": self.stability,
             "confidence": self.confidence,
             "guidance_messages": self.guidance_messages,
             "voice_message": self.voice_message,
-            "completed_phases": self.completed_phases,
-            "current_phase": self.current_phase,
-            "total_phases": self.total_phases,
-            "required_orientation": self.required_orientation,
+            "scan_captured": self.scan_captured,
             "readiness_score": round(self.readiness_score, 2),
             "error_message": self.error_message,
-            "phase_just_captured": self.phase_just_captured,
         }
 
 
@@ -157,13 +98,12 @@ class GuidedScanController:
     def __init__(self) -> None:
         self._fsm = CalibrationFSM()
         self._body_validator = BodyValidator()
-        self._orientation_detector = OrientationDetector()
+        self._front_detector = FrontFacingDetector()
         self._stability_detector = StabilityDetector()
         self._confidence_analyzer = ConfidenceAnalyzer()
 
-        # Scan data buffer — preserved across state resets.
-        self._scan_buffer: Dict[str, List[List[float]]] = {}
-        self._completed_phases: List[str] = []
+        # Captured scan data.
+        self._scan_data: Optional[List[List[float]]] = None
 
         # Voice throttling.
         self._last_voice_time: float = 0.0
@@ -182,91 +122,68 @@ class GuidedScanController:
         return self._fsm.is_active
 
     @property
-    def scan_buffer(self) -> Dict[str, List[List[float]]]:
-        return self._scan_buffer
-
-    @property
-    def completed_phases(self) -> List[str]:
-        return list(self._completed_phases)
+    def scan_data(self) -> Optional[List[List[float]]]:
+        return self._scan_data
 
     def start(self) -> CalibrationUpdate:
         """Start the calibration pipeline."""
         self._fsm.reset()
-        self._scan_buffer.clear()
-        self._completed_phases.clear()
+        self._scan_data = None
         self._init_frame_count = 0
         self._no_body_count = 0
-        self._orientation_detector.reset()
+        self._front_detector.reset()
         self._stability_detector.reset()
 
         self._fsm.transition(CalibrationState.INITIALIZING)
 
-        update = CalibrationUpdate(
+        return CalibrationUpdate(
             state=self._fsm.state.value,
             state_name=self._fsm.state_name,
             is_active=True,
             guidance_messages=["Initializing camera..."],
-            voice_message="Starting calibration. Please stand in front of the camera.",
+            voice_message="Starting scan. Please stand in front of the camera.",
         )
-        return update
 
     def process(self, landmarks: Optional[np.ndarray]) -> CalibrationUpdate:
         """
         Process one frame through the calibration pipeline.
-
-        Args:
-            landmarks: (33, 4) array from pose detection, or None.
-
-        Returns:
-            CalibrationUpdate with complete state for the frontend.
         """
         update = CalibrationUpdate()
-        update.completed_phases = list(self._completed_phases)
-        update.total_phases = 4
-
         current_state = self._fsm.state
 
-        # Determine expected orientation for occlusion-aware validation.
-        # During scan states, we know what orientation the user should be in.
-        # During body_validation, we expect front-facing (pre-scan setup).
-        expected_orient_str: Optional[str] = None
-        if current_state in _SCAN_TO_ORIENTATION:
-            expected_orient_str = _SCAN_TO_ORIENTATION[current_state].value
-        elif current_state == CalibrationState.BODY_VALIDATION:
-            expected_orient_str = "front_facing"
-
-        # Run all validators with orientation context.
-        body_result = self._body_validator.validate(landmarks, expected_orient_str)
-        orientation_result = self._orientation_detector.detect(landmarks)
+        # Run all validators.
+        body_result = self._body_validator.validate(landmarks)
+        front_result = self._front_detector.detect(landmarks)
         stability_result = self._stability_detector.update(landmarks)
-        confidence_result = self._confidence_analyzer.analyze(landmarks, expected_orient_str)
+        confidence_result = self._confidence_analyzer.analyze(landmarks)
 
         update.body_validation = body_result.to_dict()
-        update.orientation = orientation_result.to_dict()
+        update.front_facing = front_result.to_dict()
         update.stability = stability_result.to_dict()
         update.confidence = confidence_result.to_dict()
 
         # ── State-specific logic ──
 
         if current_state == CalibrationState.INITIALIZING:
-            self._handle_initializing(update, landmarks)
+            self._handle_initializing(update)
 
         elif current_state == CalibrationState.BODY_DETECTION:
-            self._handle_body_detection(update, body_result, landmarks)
+            self._handle_body_detection(update, body_result)
 
         elif current_state == CalibrationState.BODY_VALIDATION:
             self._handle_body_validation(
-                update, body_result, stability_result, confidence_result
+                update, body_result, front_result,
+                stability_result, confidence_result,
             )
 
-        elif current_state in _SCAN_TO_ORIENTATION:
-            self._handle_scan_state(
-                update, landmarks, body_result,
-                orientation_result, stability_result, confidence_result,
+        elif current_state == CalibrationState.FRONT_SCAN:
+            self._handle_front_scan(
+                update, landmarks, body_result, front_result,
+                stability_result, confidence_result,
             )
 
         elif current_state == CalibrationState.PROCESSING:
-            update.guidance_messages.append("Analyzing your posture data...")
+            update.guidance_messages.append("Analyzing your posture...")
             update.voice_message = self._throttled_voice("Analyzing your posture. Please wait.")
 
         elif current_state == CalibrationState.COMPLETE:
@@ -281,58 +198,42 @@ class GuidedScanController:
         update.state_name = self._fsm.state_name
         update.is_active = self._fsm.is_active
 
-        if self._fsm.state in _SCAN_TO_ORIENTATION:
-            update.required_orientation = _SCAN_TO_ORIENTATION[self._fsm.state].value
-            update.current_phase = _SCAN_TO_PHASE.get(self._fsm.state)
-
         return update
 
     def mark_processing_complete(self) -> CalibrationUpdate:
-        """Called by the handler when 360° analysis is done."""
+        """Called when analysis is done."""
         self._fsm.transition(CalibrationState.COMPLETE)
         return CalibrationUpdate(
             state=CalibrationState.COMPLETE.value,
             state_name="Complete",
             is_active=False,
-            completed_phases=list(self._completed_phases),
             guidance_messages=["Scan complete! View your results below."],
             voice_message="Scan complete. Your results are ready.",
         )
 
     def reset(self) -> None:
-        """Full reset — clears everything."""
+        """Full reset."""
         self._fsm.reset()
-        self._scan_buffer.clear()
-        self._completed_phases.clear()
-        self._orientation_detector.reset()
+        self._scan_data = None
+        self._front_detector.reset()
         self._stability_detector.reset()
         self._init_frame_count = 0
         self._no_body_count = 0
 
     # ── State handlers ──
 
-    def _handle_initializing(
-        self,
-        update: CalibrationUpdate,
-        landmarks: Optional[np.ndarray],
-    ) -> None:
-        """Wait a few frames for camera to warm up."""
+    def _handle_initializing(self, update: CalibrationUpdate) -> None:
         self._init_frame_count += 1
         update.guidance_messages.append("Camera warming up...")
-
         if self._init_frame_count >= _INIT_FRAMES:
             self._fsm.transition(CalibrationState.BODY_DETECTION)
             update.guidance_messages.append("Step into the camera frame")
             update.voice_message = "Please step into the camera frame so I can see your full body."
 
     def _handle_body_detection(
-        self,
-        update: CalibrationUpdate,
-        body_result: BodyValidationResult,
-        landmarks: Optional[np.ndarray],
+        self, update: CalibrationUpdate, body_result: BodyValidationResult,
     ) -> None:
-        """Waiting for a body to appear."""
-        if landmarks is not None and body_result.body_visible:
+        if body_result.body_visible:
             self._fsm.transition(CalibrationState.BODY_VALIDATION)
             self._no_body_count = 0
             update.guidance_messages.append("Body detected! Adjusting position...")
@@ -348,11 +249,10 @@ class GuidedScanController:
         self,
         update: CalibrationUpdate,
         body_result: BodyValidationResult,
+        front_result: FrontFacingResult,
         stability_result: StabilityResult,
         confidence_result: ConfidenceResult,
     ) -> None:
-        """Body visible — validate positioning before scanning."""
-
         if not body_result.body_visible:
             self._no_body_count += 1
             if self._no_body_count >= _BODY_LOST_THRESHOLD:
@@ -365,60 +265,56 @@ class GuidedScanController:
         update.guidance_messages.extend(body_result.guidance)
         update.guidance_messages.extend(confidence_result.guidance)
 
+        if not front_result.is_front_facing:
+            update.guidance_messages.append("Face the camera directly")
         if not stability_result.is_stable:
             update.guidance_messages.append("Stand still")
 
-        # Compute readiness score.
+        # Readiness score.
         readiness = 0.0
         if body_result.is_valid:
-            readiness += 0.4
+            readiness += 0.3
+        if front_result.is_confirmed:
+            readiness += 0.2
         if stability_result.stability_confirmed:
-            readiness += 0.3
+            readiness += 0.25
         if confidence_result.is_acceptable:
-            readiness += 0.3
+            readiness += 0.25
         update.readiness_score = readiness
 
         # All checks pass → advance to FRONT_SCAN.
         if (body_result.is_valid and
+                front_result.is_confirmed and
                 stability_result.stability_confirmed and
                 confidence_result.is_acceptable):
             self._fsm.transition(CalibrationState.FRONT_SCAN)
-            self._stability_detector.reset()  # Reset for new scan state.
+            self._stability_detector.reset()
             update.voice_message = self._throttled_voice(
-                "Great positioning! Now face the camera directly and stand still for the front scan."
+                "Great positioning! Hold still for the scan."
             )
         else:
-            # Provide guidance voice.
             if not body_result.body_centered:
                 update.voice_message = self._throttled_voice("Center your body in the frame.")
             elif not body_result.body_framed:
-                update.voice_message = self._throttled_voice(body_result.guidance[0] if body_result.guidance else "Adjust your distance.")
+                msg = body_result.guidance[0] if body_result.guidance else "Adjust your distance."
+                update.voice_message = self._throttled_voice(msg)
+            elif not front_result.is_front_facing:
+                update.voice_message = self._throttled_voice("Please face the camera directly.")
             elif not stability_result.is_stable:
                 update.voice_message = self._throttled_voice("Please stand still.")
             elif not confidence_result.is_acceptable:
                 update.voice_message = self._throttled_voice("Improve lighting for better detection.")
 
-    def _handle_scan_state(
+    def _handle_front_scan(
         self,
         update: CalibrationUpdate,
         landmarks: Optional[np.ndarray],
         body_result: BodyValidationResult,
-        orientation_result: OrientationResult,
+        front_result: FrontFacingResult,
         stability_result: StabilityResult,
         confidence_result: ConfidenceResult,
     ) -> None:
-        """Handle any of the 4 scan capture states."""
-        current_state = self._fsm.state
-        required_orientation = _SCAN_TO_ORIENTATION[current_state]
-        phase_name = _SCAN_TO_PHASE[current_state]
-
-        update.required_orientation = required_orientation.value
-        update.current_phase = phase_name
-
-        # Check if body was lost — occlusion-aware check.
-        # During scan states, body_visible uses orientation-specific
-        # requirements, so a hidden left arm during RIGHT_SCAN
-        # won't trigger a false "body lost".
+        # Check if body was lost.
         if not body_result.body_visible:
             self._no_body_count += 1
             if self._no_body_count >= _BODY_LOST_THRESHOLD:
@@ -428,25 +324,19 @@ class GuidedScanController:
                 update.voice_message = self._throttled_voice(
                     "I lost sight of you. Please step back into frame."
                 )
-            update.guidance_messages.append("Body not visible. Stay in frame.")
+            update.guidance_messages.append("Stay in frame")
             return
 
         self._no_body_count = 0
 
-        # Check orientation.
-        has_correct_orientation = (
-            orientation_result.confirmed_orientation == required_orientation
-            and orientation_result.is_confirmed
-        )
-
-        # Readiness score for this scan state.
+        # Readiness score.
         readiness = 0.0
-        if has_correct_orientation:
-            readiness += 0.4
-        elif orientation_result.raw_orientation == required_orientation:
-            readiness += 0.2 * orientation_result.confirmation_progress
+        if front_result.is_confirmed:
+            readiness += 0.35
+        elif front_result.is_front_facing:
+            readiness += 0.15 * front_result.confirmation_progress
         if stability_result.stability_confirmed:
-            readiness += 0.3
+            readiness += 0.35
         elif stability_result.is_stable:
             readiness += 0.15
         if confidence_result.is_acceptable:
@@ -454,69 +344,47 @@ class GuidedScanController:
         update.readiness_score = readiness
 
         # Guidance.
-        if not has_correct_orientation:
-            scan_guidance = _SCAN_VOICE_GUIDANCE.get(current_state, "Adjust your position")
-            update.guidance_messages.append(scan_guidance)
-
-            if orientation_result.raw_orientation == required_orientation:
-                progress_pct = int(orientation_result.confirmation_progress * 100)
-                update.guidance_messages.append(f"Hold steady... confirming ({progress_pct}%)")
-            else:
-                update.voice_message = self._throttled_voice(scan_guidance)
+        if not front_result.is_front_facing:
+            update.guidance_messages.append("Face the camera directly")
+            update.voice_message = self._throttled_voice("Face the camera directly.")
+        elif not front_result.is_confirmed:
+            pct = int(front_result.confirmation_progress * 100)
+            update.guidance_messages.append(f"Hold steady... confirming ({pct}%)")
         else:
             update.guidance_messages.append("Orientation confirmed!")
 
         if not stability_result.is_stable:
             update.guidance_messages.append("Stand still")
-        else:
-            if not stability_result.stability_confirmed:
-                update.guidance_messages.append("Almost there... keep holding")
+        elif not stability_result.stability_confirmed:
+            update.guidance_messages.append("Almost there... keep holding")
 
         if not confidence_result.is_acceptable:
             update.guidance_messages.extend(confidence_result.guidance)
 
-        # ── CAPTURE condition: all 3 validators pass ──
-        if (has_correct_orientation and
+        # ── CAPTURE condition: all validators pass ──
+        if (front_result.is_confirmed and
                 stability_result.stability_confirmed and
                 confidence_result.is_acceptable and
                 landmarks is not None):
 
-            # Capture the scan data!
             landmark_list = landmarks.tolist()
-            self._scan_buffer[phase_name] = landmark_list
-            self._completed_phases.append(phase_name)
-
-            update.phase_just_captured = phase_name
+            self._scan_data = landmark_list
+            update.scan_captured = True
             update.captured_landmarks = landmark_list
-            update.completed_phases = list(self._completed_phases)
 
             logger.info(
-                "scan_phase_captured",
-                phase=phase_name,
+                "front_scan_captured",
                 confidence=confidence_result.overall_confidence,
                 stability=stability_result.stability_score,
             )
 
-            # Advance to next scan state.
-            next_state = self._fsm.next_scan_state()
-            if next_state is not None:
-                self._fsm.transition(next_state)
-                self._stability_detector.reset()
-                self._orientation_detector.reset()
-
-                if next_state == CalibrationState.PROCESSING:
-                    update.voice_message = "Excellent! All scans captured. Analyzing your posture now."
-                else:
-                    next_guidance = _SCAN_VOICE_GUIDANCE.get(next_state, "")
-                    update.voice_message = f"Perfect! {phase_name.title()} scan captured. {next_guidance}"
+            # Advance to PROCESSING.
+            self._fsm.transition(CalibrationState.PROCESSING)
+            update.voice_message = "Scan captured. Analyzing your posture now."
 
     # ── Voice throttling ──
 
     def _throttled_voice(self, text: str) -> Optional[str]:
-        """
-        Return the text if it hasn't been spoken recently,
-        otherwise return None.
-        """
         now = time.monotonic()
         if text == self._last_voice_text and (now - self._last_voice_time) < _VOICE_COOLDOWN:
             return None

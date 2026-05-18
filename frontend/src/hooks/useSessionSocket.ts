@@ -1,28 +1,26 @@
 /* ============================================================
  * PhysioAI Pro V2 — useSessionSocket
  * ============================================================
- * Owns the WebSocket lifetime for a single live session.
+ * Owns the WebSocket lifetime for a live scanning session.
  *
  * RESPONSIBILITIES
  *   • Open the WS to /ws/session
- *   • Parse incoming server messages and split them into pieces
- *     of React state (landmarks, posture score, etc.)
- *   • Expose `sendFrame`, `selectExercise`, `resetReps`,
- *     `startScan`, `sendScanPhaseData` to the UI
- *   • Track a back-pressure flag so we never have more than one
- *     frame in flight per WS — base64 + JSON.stringify is slow
- *     and stacking frames is what kills realtime latency
+ *   • Parse incoming server messages into React state
+ *   • Expose sendFrame, selectExercise, resetReps,
+ *     startCalibration, stopCalibration
+ *   • Track AI mode (idle / posture_analysis / exercise_tracking)
+ *   • Back-pressure: never more than one frame in flight
  * ============================================================ */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
+  AIMode,
   ClientMessage,
   ExerciseCard,
   Landmark,
   PostureIssue,
   RepState,
-  ScanIssue,
   ScanResultMessage,
   CalibrationUpdateMessage,
   ServerMessage,
@@ -42,6 +40,7 @@ export type SessionState = {
   exerciseCorrection: string | null;
   scanResult: ScanResultMessage | null;
   calibration: CalibrationUpdateMessage | null;
+  aiMode: AIMode;
 };
 
 export function useSessionSocket(enabled: boolean, wsUrl?: string) {
@@ -65,6 +64,7 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
   const [exerciseCorrection, setExerciseCorrection] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResultMessage | null>(null);
   const [calibration, setCalibration] = useState<CalibrationUpdateMessage | null>(null);
+  const [aiMode, setAiMode] = useState<AIMode>("idle");
 
   useEffect(() => {
     if (!enabled) return;
@@ -83,6 +83,7 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
       setRepState(null);
       setExerciseCorrection(null);
       setCalibration(null);
+      setAiMode("idle");
     };
 
     ws.onmessage = (ev) => {
@@ -101,9 +102,15 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
         } else if (msg.type === "scan_result") {
           setScanResult(msg);
         } else if (msg.type === "calibration_update") {
-          setCalibration(msg as CalibrationUpdateMessage);
+          const cal = msg as CalibrationUpdateMessage;
+          setCalibration(cal);
+          // Track mode transitions based on calibration state.
+          if (cal.is_active) {
+            setAiMode("posture_analysis");
+          } else if (cal.state === "complete") {
+            setAiMode("idle");
+          }
         }
-        // Silently ignore `connected` / `heartbeat` / `error`.
       } catch {
         // Bad JSON from the server — ignore.
       }
@@ -115,7 +122,7 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
     };
   }, [enabled, url]);
 
-  /** Send one JPEG frame. Drops the frame if a previous send is still in flight. */
+  /** Send one JPEG frame. */
   const sendFrame = useCallback(async (blob: Blob) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || busyRef.current) return;
@@ -142,33 +149,43 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
   }, []);
 
   const selectExercise = useCallback(
-    (exercise_id: string) => sendControl({ type: "select_exercise", exercise_id }),
+    (exercise_id: string) => {
+      sendControl({ type: "select_exercise", exercise_id });
+      setAiMode("exercise_tracking");
+    },
     [sendControl]
   );
+
   const resetReps = useCallback(
     () => sendControl({ type: "reset_reps" }),
     [sendControl]
   );
-  const startScan = useCallback(
-    () => sendControl({ type: "start_scan" }),
-    [sendControl]
-  );
-  const sendScanPhaseData = useCallback(
-    (phase: string, landmarks: number[][]) =>
-      sendControl({ type: "scan_phase_data", phase, landmarks }),
+
+  const startCalibration = useCallback(
+    () => {
+      sendControl({ type: "start_calibration" });
+      setAiMode("posture_analysis");
+    },
     [sendControl]
   );
 
-  const startCalibration = useCallback(
-    () => sendControl({ type: "start_calibration" }),
-    [sendControl]
-  );
   const stopCalibration = useCallback(
     () => {
       sendControl({ type: "stop_calibration" });
       setCalibration(null);
+      setAiMode("idle");
     },
     [sendControl]
+  );
+
+  /** Exit exercise tracking mode and return to idle (results visible). */
+  const stopExercise = useCallback(
+    () => {
+      setRepState(null);
+      setExerciseCorrection(null);
+      setAiMode("idle");
+    },
+    []
   );
 
   const detected = Array.isArray(landmarks) && landmarks.length === 33;
@@ -187,13 +204,13 @@ export function useSessionSocket(enabled: boolean, wsUrl?: string) {
     exerciseCorrection,
     scanResult,
     calibration,
+    aiMode,
     sendFrame,
     selectExercise,
     resetReps,
-    startScan,
-    sendScanPhaseData,
     startCalibration,
     stopCalibration,
+    stopExercise,
   };
 }
 

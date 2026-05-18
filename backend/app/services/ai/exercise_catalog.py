@@ -67,6 +67,19 @@ EXERCISES: Dict[str, ExerciseCard] = {
             "ثبّت لمدة ٣ ثوانٍ، ثم استرخِ.",
         ],
     ),
+    "shoulder_release": ExerciseCard(
+        id="shoulder_release",
+        name_ar="تحرير الكتف",
+        name_en="Shoulder Release",
+        reps=10,
+        duration_s=75,
+        instructions_ar=[
+            "قف بظهر مستقيم وذراعيك على جانبيك.",
+            "ارفع ذراعيك جانبياً حتى مستوى الكتف.",
+            "ثبّت لمدة ٣ ثوانٍ مع التنفس العميق.",
+            "أنزل ذراعيك ببطء إلى الوضع الأصلي.",
+        ],
+    ),
 }
 
 
@@ -75,8 +88,8 @@ EXERCISES: Dict[str, ExerciseCard] = {
 # that match what the PostureAnalyzer emits.
 ISSUE_TO_EXERCISES: Dict[str, List[str]] = {
     "forward_head": ["chin_tuck", "wall_angel"],
-    "rounded_shoulders": ["wall_angel", "thoracic_extension"],
-    "slouching": ["thoracic_extension", "wall_angel"],
+    "rounded_shoulders": ["shoulder_release", "wall_angel", "thoracic_extension"],
+    "slouching": ["thoracic_extension", "wall_angel", "shoulder_release"],
 }
 
 
