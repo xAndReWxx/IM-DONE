@@ -82,3 +82,38 @@ def horizontal_tilt(a: Point, b: Point) -> float:
 def midpoint(a: Point, b: Point) -> tuple[float, float]:
     """2D midpoint of two points."""
     return ((float(a[0]) + float(b[0])) / 2.0, (float(a[1]) + float(b[1])) / 2.0)
+
+
+def shoulder_depth_ratio(left_shoulder: Point, right_shoulder: Point) -> float:
+    """
+    Compute the ratio of z-depth difference to apparent width.
+
+    Used to estimate body rotation:
+      • ratio ≈ 0 → facing camera (front view)
+      • ratio > 0 → rotated right (right shoulder closer)
+      • ratio < 0 → rotated left (left shoulder closer)
+
+    The magnitude indicates how much rotation has occurred.
+    """
+    dx = abs(float(left_shoulder[0]) - float(right_shoulder[0]))
+    if len(left_shoulder) > 2 and len(right_shoulder) > 2:
+        dz = float(left_shoulder[2]) - float(right_shoulder[2])
+        return dz / max(dx, 0.01)
+    return 0.0
+
+
+def body_rotation_angle(left_shoulder: Point, right_shoulder: Point) -> float:
+    """
+    Estimate body rotation angle in degrees from shoulder positions.
+
+    Returns:
+        Angle in degrees: 0° = facing camera, positive = rotated right,
+        negative = rotated left. Based on the z-depth differential
+        between left and right shoulders.
+    """
+    dx = abs(float(left_shoulder[0]) - float(right_shoulder[0]))
+    if len(left_shoulder) > 2 and len(right_shoulder) > 2:
+        dz = float(left_shoulder[2]) - float(right_shoulder[2])
+        return float(math.degrees(math.atan2(dz, max(dx, 0.01))))
+    return 0.0
+

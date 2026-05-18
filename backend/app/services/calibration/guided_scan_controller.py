@@ -226,11 +226,20 @@ class GuidedScanController:
 
         current_state = self._fsm.state
 
-        # Run all validators regardless of state.
-        body_result = self._body_validator.validate(landmarks)
+        # Determine expected orientation for occlusion-aware validation.
+        # During scan states, we know what orientation the user should be in.
+        # During body_validation, we expect front-facing (pre-scan setup).
+        expected_orient_str: Optional[str] = None
+        if current_state in _SCAN_TO_ORIENTATION:
+            expected_orient_str = _SCAN_TO_ORIENTATION[current_state].value
+        elif current_state == CalibrationState.BODY_VALIDATION:
+            expected_orient_str = "front_facing"
+
+        # Run all validators with orientation context.
+        body_result = self._body_validator.validate(landmarks, expected_orient_str)
         orientation_result = self._orientation_detector.detect(landmarks)
         stability_result = self._stability_detector.update(landmarks)
-        confidence_result = self._confidence_analyzer.analyze(landmarks)
+        confidence_result = self._confidence_analyzer.analyze(landmarks, expected_orient_str)
 
         update.body_validation = body_result.to_dict()
         update.orientation = orientation_result.to_dict()
@@ -406,7 +415,10 @@ class GuidedScanController:
         update.required_orientation = required_orientation.value
         update.current_phase = phase_name
 
-        # Check if body was lost.
+        # Check if body was lost — occlusion-aware check.
+        # During scan states, body_visible uses orientation-specific
+        # requirements, so a hidden left arm during RIGHT_SCAN
+        # won't trigger a false "body lost".
         if not body_result.body_visible:
             self._no_body_count += 1
             if self._no_body_count >= _BODY_LOST_THRESHOLD:
