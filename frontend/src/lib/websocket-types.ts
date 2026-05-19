@@ -84,6 +84,7 @@ export type ScanIssue = {
 
 export type ScanResultMessage = {
   type: "scan_result";
+  posture_score: number;
   issues: ScanIssue[];
   recommendations: ExerciseCard[];
   analysis_summary: string;

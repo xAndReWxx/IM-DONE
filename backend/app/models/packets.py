@@ -234,6 +234,7 @@ class ScanIssue(BaseModel):
 class ScanResultPacket(BaseModel):
     """Full-body analysis result returned after a complete 360° scan."""
     type: str = Field(default=PacketType.SCAN_RESULT.value)
+    posture_score: int = Field(default=0)
     issues: List[ScanIssue] = Field(default_factory=list)
     recommendations: List[ExerciseCard] = Field(default_factory=list)
     analysis_summary: str = Field(default="")

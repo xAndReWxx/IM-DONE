@@ -12,11 +12,23 @@ type Props = {
   onBack: () => void;
 };
 
+import type { PostureIssue, ExerciseCard, ScanIssue } from "@/lib/websocket-types";
+
 export type ScreenState = "scanning" | "recommendation" | "training";
+
+export type FinalScanResult = {
+  postureScore: number | null;
+  postureIssues: ScanIssue[];
+  feedbackAr: string;
+  recommendations: ExerciseCard[];
+  detected: boolean;
+  timestamp: number;
+};
 
 export function SessionManager({ onBack }: Props) {
   const [screen, setScreen] = useState<ScreenState>("scanning");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [finalScanResult, setFinalScanResult] = useState<FinalScanResult | null>(null);
 
   // Camera lifecycle.
   const {
@@ -36,6 +48,16 @@ export function SessionManager({ onBack }: Props) {
     return () => { stopCam(); };
   }, []);
 
+  // ── Auto-start calibration when WS connects ──
+  const hasAutoStarted = useRef(false);
+  useEffect(() => {
+    if (session.connected && !hasAutoStarted.current && screen === "scanning") {
+      hasAutoStarted.current = true;
+      const t = setTimeout(() => session.startCalibration(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [session.connected, session.startCalibration, screen]);
+
   // ── Screen Transitions ──
   const { aiMode, calibration, scanResult } = session;
   const isCalibrating = calibration != null && calibration.is_active;
@@ -44,13 +66,23 @@ export function SessionManager({ onBack }: Props) {
   // Auto transition from scanning to recommendation when scan completes
   useEffect(() => {
     if (screen === "scanning" && scanComplete) {
+      // Freeze the final scan state using the ScanResult if available
+      setFinalScanResult({
+        postureScore: session.scanResult?.posture_score ?? session.postureScore,
+        postureIssues: session.scanResult?.issues ?? [],
+        feedbackAr: session.scanResult?.analysis_summary ?? session.feedbackAr,
+        recommendations: session.scanResult?.recommendations ?? [],
+        detected: session.detected,
+        timestamp: Date.now()
+      });
+
       // Small delay to allow the "Scan Complete" animation/state to be seen briefly
       const t = setTimeout(() => {
         setScreen("recommendation");
       }, 1500);
       return () => clearTimeout(t);
     }
-  }, [screen, scanComplete]);
+  }, [screen, scanComplete, session.postureScore, session.scanResult, session.feedbackAr, session.detected]);
 
   // If we are in recommendation and user selects an exercise, go to training
   const handleSelectExercise = (id: string) => {
@@ -67,18 +99,21 @@ export function SessionManager({ onBack }: Props) {
 
   const handleRescan = () => {
     setScreen("scanning");
+    setFinalScanResult(null);
     session.stopCalibration();
+    hasAutoStarted.current = false; // Allow auto-start to trigger again
     setTimeout(() => session.startCalibration(), 300);
   };
 
   // ── Derived View State ──
   // The camera wrapper changes style in training mode (split screen)
   const isTraining = screen === "training";
+  const isRecommendation = screen === "recommendation";
 
   return (
     <div className="session-manager">
       {/* ── BACKGROUND CAMERA LAYER ── */}
-      <div className={`session-camera-layer ${isTraining ? "session-camera-layer--split" : ""}`}>
+      <div className={`session-camera-layer ${isTraining ? "session-camera-layer--split" : ""} ${isRecommendation ? "session-camera-layer--hidden" : ""}`}>
         <CameraOverlay
           ref={videoRef}
           landmarks={session.landmarks}
@@ -98,9 +133,9 @@ export function SessionManager({ onBack }: Props) {
         />
       )}
 
-      {screen === "recommendation" && (
+      {screen === "recommendation" && finalScanResult && (
         <RecommendationScreen
-          session={session}
+          finalScanResult={finalScanResult}
           onBack={onBack}
           onSelectExercise={handleSelectExercise}
           onRescan={handleRescan}

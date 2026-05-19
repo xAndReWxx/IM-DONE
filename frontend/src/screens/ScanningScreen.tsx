@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { CalibrationOverlay } from "@/components/CalibrationOverlay";
 import { useArabicVoice } from "@/hooks/useArabicVoice";
 import { useSessionSocket } from "@/hooks/useSessionSocket";
+import { CoachLivePanel } from "@/components/CoachLivePanel";
 import "./ScanningScreen.css";
 
 type Props = {
@@ -17,15 +18,6 @@ export function ScanningScreen({ session, onBack, camError, errorDetail, camStat
   const [voiceOn, setVoiceOn] = useState(true);
   const { speak: speakAr } = useArabicVoice(voiceOn);
 
-  // ── Auto-start calibration when WS connects ──
-  const hasAutoStarted = useRef(false);
-  useEffect(() => {
-    if (session.connected && !hasAutoStarted.current) {
-      hasAutoStarted.current = true;
-      const t = setTimeout(() => session.startCalibration(), 600);
-      return () => clearTimeout(t);
-    }
-  }, [session.connected, session.startCalibration]);
 
   // ── Throttled Arabic feedback ──
   const lastFeedbackRef = useRef("");
@@ -102,6 +94,11 @@ export function ScanningScreen({ session, onBack, camError, errorDetail, camStat
           </span>
         </div>
       )}
+
+      {/* ── Coach Live Panel ── */}
+      <div style={{ position: "absolute", bottom: "max(24px, var(--safe-bottom))", left: "max(24px, var(--safe-left))", pointerEvents: "auto" }}>
+        <CoachLivePanel mode="scan" session={session} />
+      </div>
     </div>
   );
 }

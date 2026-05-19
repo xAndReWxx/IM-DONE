@@ -1,0 +1,64 @@
+.coach-live-panel {
+  background: rgba(20, 20, 25, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  padding: 16px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.coach-live-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--c-line-dim);
+  padding-bottom: 12px;
+}
+
+.live-indicator {
+  width: 8px;
+  height: 8px;
+  background: var(--c-signal);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--c-signal);
+  animation: pulse-red 2s infinite ease-in-out;
+}
+
+@keyframes pulse-red {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.coach-live-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insight-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.insight-label {
+  color: var(--c-text-dim);
+  letter-spacing: 0.05em;
+}
+
+.insight-value {
+  color: var(--c-text);
+  font-weight: 500;
+  text-align: right;
+  max-width: 60%;
+}
+
+.correction-value {
+  color: var(--c-signal);
+}

@@ -1,17 +1,17 @@
 import { ExerciseCardView } from "@/components/ExerciseCardView";
 import { PostureGauge } from "@/components/PostureGauge";
 import { FeedbackPanel } from "@/components/FeedbackPanel";
-import { useSessionSocket } from "@/hooks/useSessionSocket";
+import type { FinalScanResult } from "./SessionManager";
 import "./RecommendationScreen.css";
 
 type Props = {
-  session: ReturnType<typeof useSessionSocket>;
+  finalScanResult: FinalScanResult;
   onBack: () => void;
   onSelectExercise: (id: string) => void;
   onRescan: () => void;
 };
 
-export function RecommendationScreen({ session, onBack, onSelectExercise, onRescan }: Props) {
+export function RecommendationScreen({ finalScanResult, onBack, onSelectExercise, onRescan }: Props) {
   return (
     <div className="recommendation-screen">
       <header className="recommendation-screen__header">
@@ -32,13 +32,30 @@ export function RecommendationScreen({ session, onBack, onSelectExercise, onResc
           <h2 className="label section-title">POSTURE ANALYSIS SUMMARY</h2>
           
           <div className="summary-panel">
-            <PostureGauge score={session.postureScore} />
+            <PostureGauge score={finalScanResult.postureScore} />
+          </div>
+
+          <div className="posture-summary-list">
+            <h3 className="label summary-subtitle">DETECTED CONDITIONS</h3>
+            <ul className="summary-list">
+              {finalScanResult.postureIssues.map((issue, idx) => (
+                <li key={idx} className="summary-list-item">
+                  <span className="issue-type">{issue.type.replace(/_/g, " ").toUpperCase()}</span>
+                  <span className={`issue-severity severity-${issue.severity}`}>{issue.severity}</span>
+                </li>
+              ))}
+              {finalScanResult.postureIssues.length === 0 && (
+                <li className="summary-list-item">
+                  <span className="issue-type">NO ISSUES DETECTED</span>
+                </li>
+              )}
+            </ul>
           </div>
 
           <FeedbackPanel
-            feedbackAr={session.feedbackAr}
-            issues={session.postureIssues}
-            detected={session.detected}
+            feedbackAr={finalScanResult.feedbackAr}
+            issues={finalScanResult.postureIssues}
+            detected={finalScanResult.detected}
           />
         </section>
 
@@ -47,12 +64,12 @@ export function RecommendationScreen({ session, onBack, onSelectExercise, onResc
           <div className="exercises-header">
             <h2 className="label section-title">RECOMMENDED EXERCISES</h2>
             <span className="label exercises-count">
-              {session.recommendations.length} SUGGESTED
+              {finalScanResult.recommendations.length} SUGGESTED
             </span>
           </div>
 
           <div className="exercises-grid">
-            {session.recommendations.map((card) => (
+            {finalScanResult.recommendations.map((card) => (
               <ExerciseCardView
                 key={card.id}
                 card={card}
@@ -61,7 +78,7 @@ export function RecommendationScreen({ session, onBack, onSelectExercise, onResc
               />
             ))}
             
-            {session.recommendations.length === 0 && (
+            {finalScanResult.recommendations.length === 0 && (
               <div className="exercises-empty">
                 <span className="label">No issues detected. Excellent posture!</span>
               </div>

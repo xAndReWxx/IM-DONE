@@ -15,7 +15,7 @@ import type { PostureIssue } from "@/lib/websocket-types";
 
 type Props = {
   feedbackAr: string;
-  issues: PostureIssue[];
+  issues: any[];
   detected: boolean;
 };
 
@@ -54,12 +54,19 @@ export function FeedbackPanel({ feedbackAr, issues, detected }: Props) {
         {issues.length === 0 ? (
           <span className="label feedback__issues-empty">NO ISSUES DETECTED</span>
         ) : (
-          issues.map((iss) => (
-            <span key={iss} className="feedback__issue label">
-              <span className="feedback__issue-dot" aria-hidden />
-              {ISSUE_LABELS_EN[iss]}
-            </span>
-          ))
+          issues.map((iss, idx) => {
+            const key = iss.type || iss;
+            const label = iss.type 
+              ? iss.type.replace(/_/g, " ").toUpperCase() 
+              : (ISSUE_LABELS_EN[iss as PostureIssue] || iss);
+            
+            return (
+              <span key={`${key}-${idx}`} className="feedback__issue label">
+                <span className="feedback__issue-dot" aria-hidden />
+                {label}
+              </span>
+            );
+          })
         )}
       </div>
     </div>

@@ -202,7 +202,10 @@ def compare_to_template(
 
         ref_range_pair = template_angle_ranges.get(name)
         if ref_range_pair:
-            ref_range = ref_range_pair[1] - ref_range_pair[0]
+            if isinstance(ref_range_pair, dict):
+                ref_range = ref_range_pair["max"] - ref_range_pair["min"]
+            else:
+                ref_range = ref_range_pair[1] - ref_range_pair[0]
             if ref_range > 0:
                 ratio = min(1.0, user_range / ref_range)
                 range_scores.append(ratio)

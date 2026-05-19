@@ -1,0 +1,17 @@
+{
+    "name_en": "Elbow",
+    "name_ar": "كوع",
+    "description": "Mobility exercise focused on improving arm extension and elbow flexibility.",
+    "reps": 10,
+    "duration_s": 60,
+    "instructions_ar": [
+        "قف أو اجلس بظهر مستقيم.",
+        "قم بثني كوعك ثم مده ببطء حتى أقصى مدى.",
+        "حافظ على استقامة الكتف أثناء الحركة.",
+        "كرر الحركة ببطء وبدون ألم."
+    ],
+    "difficulty": "Beginner",
+    "movement_type": "mobility",
+    "target_posture_issue": ["restricted_arm_mobility", "elbow_stiffness", "limited_ROM"],
+    "target_muscles": ["biceps", "triceps"]
+}

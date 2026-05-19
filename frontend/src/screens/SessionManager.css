@@ -20,6 +20,12 @@
   width: 50vw;
 }
 
+.session-camera-layer--hidden {
+  /* Hide the camera layer visually when in recommendation view */
+  opacity: 0;
+  pointer-events: none;
+}
+
 @media (max-width: 900px) {
   .session-camera-layer--split {
     /* On mobile, camera is top half, video is bottom half */

@@ -1,8 +1,9 @@
 import { RepCounter } from "@/components/RepCounter";
-import { VideoPlayer } from "@/components/VideoPlayer";
+import { ExerciseVideoPlayer } from "@/components/ExerciseVideoPlayer";
 import { useArabicVoice } from "@/hooks/useArabicVoice";
 import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
 import { useSessionSocket } from "@/hooks/useSessionSocket";
+import { CoachLivePanel } from "@/components/CoachLivePanel";
 import { useEffect, useRef, useState } from "react";
 import "./TrainingScreen.css";
 
@@ -34,8 +35,7 @@ export function TrainingScreen({ session, exerciseId, onBack }: Props) {
     };
   }, [session.exerciseCorrection, speakEn, voiceOn]);
 
-  const backendOrigin = `${window.location.protocol}//${window.location.hostname}:8000`;
-  const videoSrc = `${backendOrigin}/exercise_videos/${exerciseId}.mp4`;
+  const videoSrc = `/exercise_videos/${exerciseId}/${exerciseId}.mp4`;
 
   return (
     <div className="training-screen">
@@ -68,6 +68,10 @@ export function TrainingScreen({ session, exerciseId, onBack }: Props) {
               <p className="correction-text">{session.exerciseCorrection}</p>
             </div>
           )}
+
+          <div style={{ pointerEvents: "auto", marginTop: "auto" }}>
+            <CoachLivePanel mode="train" session={session} />
+          </div>
         </div>
       </section>
 
@@ -77,7 +81,7 @@ export function TrainingScreen({ session, exerciseId, onBack }: Props) {
           <h2 className="label exercise-title">{exerciseId.replace(/_/g, " ")}</h2>
           
           <div className="exercise-video-wrap">
-            <VideoPlayer src={videoSrc} title={exerciseId.replace(/_/g, " ")} />
+            <ExerciseVideoPlayer src={videoSrc} title={exerciseId.replace(/_/g, " ")} />
           </div>
 
           <div className="exercise-instructions">

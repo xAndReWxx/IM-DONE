@@ -92,6 +92,65 @@
   justify-content: center;
 }
 
+.posture-summary-list {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  padding: 24px;
+}
+
+.summary-subtitle {
+  color: var(--c-text-dim);
+  font-size: 11px;
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid var(--c-line-dim);
+  padding-bottom: 8px;
+}
+
+.summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.issue-type {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.issue-severity {
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--c-surface-2);
+  color: var(--c-text-dim);
+}
+
+.severity-severe {
+  background: rgba(245, 176, 66, 0.15);
+  color: var(--c-signal);
+}
+
+.severity-moderate {
+  background: rgba(245, 224, 66, 0.15);
+  color: #d1b426;
+}
+
+.severity-mild {
+  background: rgba(155, 196, 165, 0.15);
+  color: var(--c-good);
+}
+
 .recommendation-screen__exercises {
   display: flex;
   flex-direction: column;

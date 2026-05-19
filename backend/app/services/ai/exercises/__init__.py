@@ -27,6 +27,7 @@ from app.services.ai.exercises.chin_tuck import ChinTuckTracker
 from app.services.ai.exercises.wall_angel import WallAngelTracker
 from app.services.ai.exercises.thoracic_extension import ThoracicExtensionTracker
 from app.services.ai.exercises.shoulder_release import ShoulderReleaseTracker
+from app.services.ai.exercises.elbow import ElbowTracker
 
 
 # Stable ID → tracker class. Keys must match exercise_catalog.EXERCISES.
@@ -35,6 +36,7 @@ TRACKER_REGISTRY: Dict[str, Type[BaseExerciseTracker]] = {
     "wall_angel":          WallAngelTracker,
     "thoracic_extension":  ThoracicExtensionTracker,
     "shoulder_release":    ShoulderReleaseTracker,
+    "elbow":               ElbowTracker,
 }
 
 

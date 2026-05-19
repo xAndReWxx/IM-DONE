@@ -49,7 +49,11 @@ def classify_mistakes(
             user_range = user_max - user_min
             
             ref = ref_ranges[name]
-            ref_range = ref["max"] - ref["min"]
+            if isinstance(ref, dict):
+                ref_range = ref["max"] - ref["min"]
+            else:
+                # It's a list/tuple: [min, max]
+                ref_range = ref[1] - ref[0]
             
             if ref_range > 15.0 and user_range < (ref_range * 0.6):
                 restricted_rom = True

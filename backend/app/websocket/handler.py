@@ -118,6 +118,7 @@ async def websocket_handler(websocket: WebSocket) -> None:
         if client_id:
             # Clean up calibration controller.
             _calibration_controllers.pop(client_id, None)
+            ai_engine.cleanup_client(client_id)
             await connection_manager.disconnect(client_id)
 
 
@@ -133,6 +134,11 @@ async def _message_loop(websocket: WebSocket, client_id: str) -> None:
     """
     while True:
         try:
+            from starlette.websockets import WebSocketState
+            if websocket.client_state != WebSocketState.CONNECTED:
+                logger.info("websocket_state_disconnected", client_id=client_id)
+                raise WebSocketDisconnect()
+
             raw_message = await websocket.receive_text()
 
             connection_manager.update_metadata(
@@ -143,6 +149,12 @@ async def _message_loop(websocket: WebSocket, client_id: str) -> None:
             await _process_message(raw_message, client_id)
 
         except WebSocketDisconnect:
+            raise
+            
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e) or "Cannot call" in str(e):
+                logger.info("websocket_closed_runtime", client_id=client_id, error=str(e))
+                raise WebSocketDisconnect()
             raise
 
         except json.JSONDecodeError as e:
@@ -267,10 +279,10 @@ async def _handle_frame(data: dict, client_id: str) -> None:
             # Remove controller — calibration is done.
             _calibration_controllers.pop(client_id, None)
 
-            # ── STOP posture analysis — switch to idle mode ──
-            from app.services.ai_engine import AI_MODE_IDLE
-            ai_engine.set_mode(client_id, AI_MODE_IDLE)
-            logger.info("calibration_complete_mode_idle", client_id=client_id)
+            # ── STOP posture analysis — switch to recommendation_view mode ──
+            from app.services.ai_engine import AI_MODE_RECOMMENDATION_VIEW
+            ai_engine.set_mode(client_id, AI_MODE_RECOMMENDATION_VIEW)
+            logger.info("calibration_complete_mode_recommendation_view", client_id=client_id)
 
 
 async def _handle_select_exercise(data: dict, client_id: str) -> None:

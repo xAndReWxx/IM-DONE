@@ -80,6 +80,7 @@ _CORRECTION_THRESHOLD = 12.0
 # AI processing modes.
 AI_MODE_IDLE = "idle"                        # landmarks only, no analysis
 AI_MODE_POSTURE_ANALYSIS = "posture_analysis" # calibration + posture scan
+AI_MODE_RECOMMENDATION_VIEW = "recommendation_view" # frozen results, no scanning
 AI_MODE_EXERCISE_TRACKING = "exercise_tracking" # exercise validation
 
 
@@ -166,14 +167,20 @@ class AIEngine:
     def select_exercise(self, client_id: str, exercise_id: str) -> bool:
         """Select an exercise and switch to exercise tracking mode."""
         state = self.get_or_create_state(client_id)
+        
+        # Try to load an AI motion template for this exercise.
+        from app.services.exercise_engine.template_manager import template_manager
+        from app.services.exercise_engine.realtime_tracker import RealtimeMotionTracker
+        
+        template = template_manager.get(exercise_id)
         new_tracker = create_tracker(exercise_id)
-        if new_tracker is None:
+        
+        if not template and not new_tracker:
             logger.warning("unknown_exercise_id", exercise_id=exercise_id)
             return False
+            
         state.tracker = new_tracker
-
-        # Try to load an AI motion template for this exercise.
-        template = template_manager.get(exercise_id)
+        
         if template:
             state.motion_tracker = RealtimeMotionTracker(template, fps=15.0)
             logger.info("motion_tracker_created", exercise=exercise_id, mode="ai_template")
@@ -371,16 +378,11 @@ class AIEngine:
                             severity=m_issue.get("severity", "moderate"),
                         ))
 
-        # ── Build recommendations from detected issues ──
-        mapped_issues = [i for i in [
-            "forward_head" if "forward_head" in all_issue_types else None,
-            "rounded_shoulders" if "shoulder_asymmetry" in all_issue_types else None,
-            "slouching" if "spine_lean" in all_issue_types else None,
-            "restricted_arm_mobility" if "restricted_arm_mobility" in all_issue_types else None,
-            "uneven_shoulders" if "uneven_shoulders" in all_issue_types else None,
-        ] if i is not None]
-
-        recommendations = recommend_for_issues(mapped_issues) if mapped_issues else []
+        # ── Build recommendations from posture signature ──
+        from app.services.ai.recommendation_similarity import get_similarity_recommendations
+        
+        # We use the front snapshot landmarks to compute similarity
+        recommendations = get_similarity_recommendations(front)
 
         # ── Summary ──
         if not issues:
@@ -397,7 +399,16 @@ class AIEngine:
                 + (f"{severity_counts['mild']} mild." if severity_counts["mild"] else "")
             ).strip(", ") + " See recommendations below."
 
+        # Compute a final deterministic score
+        deductions = 0
+        for iss in issues:
+            if iss.severity == "severe": deductions += 15
+            elif iss.severity == "moderate": deductions += 10
+            elif iss.severity == "mild": deductions += 5
+        final_score = max(0, 100 - deductions)
+
         return ScanResultPacket(
+            posture_score=final_score,
             issues=issues,
             recommendations=recommendations,
             analysis_summary=summary,
@@ -505,8 +516,8 @@ class AIEngine:
                     if correction:
                         exercise_correction = correction
 
-            # AI_MODE_IDLE: landmarks only, no analysis.
-            if state.ai_mode == AI_MODE_IDLE:
+            # AI_MODE_IDLE or AI_MODE_RECOMMENDATION_VIEW: landmarks only, no analysis.
+            if state.ai_mode in (AI_MODE_IDLE, AI_MODE_RECOMMENDATION_VIEW):
                 # Explicitly guarantee we do not drop the packet
                 pass
                 
