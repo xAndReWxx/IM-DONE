@@ -82,17 +82,18 @@ def get_similarity_recommendations(landmarks: Optional[np.ndarray], limit: int =
     # Confidence scoring per target profile
     scores: Dict[str, float] = {}
 
-    # Profile: Forward Head -> chin_tuck (or general posture if chin_tuck missing)
+    # Profile: Forward Head -> shoulder_release
     # Forward head signature: high fh_avg
     fh_confidence = np.clip((sig["forward_head"] - 15) / 25.0, 0, 1.0)
-    scores["chin_tuck"] = float(fh_confidence)
+    scores["shoulder_release"] = float(fh_confidence)
 
     # Profile: Rounded Shoulders / Asymmetry -> shoulder_release, t_fly
     # Signature: high shoulder tilt or spine lean
     shoulder_confidence = np.clip((sig["shoulder_tilt"] - 5) / 15.0, 0, 1.0)
     lean_confidence = np.clip((sig["spine_lean"] - 5) / 15.0, 0, 1.0)
     upper_body_issue = max(shoulder_confidence, lean_confidence)
-    scores["shoulder_release"] = float(upper_body_issue * 0.9) # slight bias
+    # Since shoulder_release is also for forward head, combine the confidence
+    scores["shoulder_release"] = max(scores.get("shoulder_release", 0.0), float(upper_body_issue * 0.9))
     scores["t_fly"] = float(upper_body_issue)
 
     # Profile: Restricted Arm Mobility -> elbow

@@ -181,12 +181,12 @@ class AIEngine:
             
         state.tracker = new_tracker
         
-        if template:
+        if template and exercise_id not in ["shoulder_release", "elbow"]:
             state.motion_tracker = RealtimeMotionTracker(template, fps=15.0)
             logger.info("motion_tracker_created", exercise=exercise_id, mode="ai_template")
         else:
             state.motion_tracker = None
-            logger.info("motion_tracker_fallback", exercise=exercise_id, mode="rule_based")
+            logger.info("motion_tracker_created", exercise=exercise_id, mode="biomechanical_tracking")
 
         state.ai_mode = AI_MODE_EXERCISE_TRACKING
         state.feedback_throttler.reset()
@@ -484,7 +484,8 @@ class AIEngine:
                     posture_score = posture.score
                     posture_issues = posture.issues
                     feedback_ar = posture.feedback_ar
-                    recommendations = recommend_for_issues(posture.issues) if posture.issues else []
+                    issue_types = posture.issues
+                    recommendations = recommend_for_issues(issue_types) if issue_types else []
                 except Exception as e:
                     logger.exception("posture_analysis_failed")
                     posture_score = None
@@ -629,11 +630,11 @@ class AIEngine:
 
         elif exercise_id == "shoulder_release":
             if tilt > 10:
-                return "Keep both shoulders level as you raise your arms — don't tilt."
+                return "Keep your neck straight — don't tilt your head to the side."
+            if fh > 35:
+                return "Complete the movement — pull your head further back."
             if lean > 12:
-                return "Stand upright — don't lean forward during the arm raise."
-            if fh > 28:
-                return "Keep your head aligned over your shoulders — don't push it forward."
+                return "Stand upright — don't lean your torso forward."
 
         return None
 

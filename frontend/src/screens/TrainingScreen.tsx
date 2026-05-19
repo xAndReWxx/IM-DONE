@@ -3,7 +3,6 @@ import { ExerciseVideoPlayer } from "@/components/ExerciseVideoPlayer";
 import { useArabicVoice } from "@/hooks/useArabicVoice";
 import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
 import { useSessionSocket } from "@/hooks/useSessionSocket";
-import { CoachLivePanel } from "@/components/CoachLivePanel";
 import { useEffect, useRef, useState } from "react";
 import "./TrainingScreen.css";
 
@@ -69,9 +68,7 @@ export function TrainingScreen({ session, exerciseId, onBack }: Props) {
             </div>
           )}
 
-          <div style={{ pointerEvents: "auto", marginTop: "auto" }}>
-            <CoachLivePanel mode="train" session={session} />
-          </div>
+
         </div>
       </section>
 

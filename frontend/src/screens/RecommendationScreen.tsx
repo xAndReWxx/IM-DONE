@@ -1,6 +1,5 @@
 import { ExerciseCardView } from "@/components/ExerciseCardView";
 import { PostureGauge } from "@/components/PostureGauge";
-import { FeedbackPanel } from "@/components/FeedbackPanel";
 import type { FinalScanResult } from "./SessionManager";
 import "./RecommendationScreen.css";
 
@@ -52,11 +51,6 @@ export function RecommendationScreen({ finalScanResult, onBack, onSelectExercise
             </ul>
           </div>
 
-          <FeedbackPanel
-            feedbackAr={finalScanResult.feedbackAr}
-            issues={finalScanResult.postureIssues}
-            detected={finalScanResult.detected}
-          />
         </section>
 
         {/* Right Column: Exercise Recommendations */}

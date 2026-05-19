@@ -1,24 +1,17 @@
 """
 ============================================================
-PhysioAI Pro V2 - Shoulder Release Tracker
+PhysioAI Pro V2 - Forward Head Correction Tracker
 ============================================================
 PURPOSE
-    Counts shoulder release / arm raise reps by monitoring the
-    wrist-to-shoulder vertical angle.
+    Counts head retractions by monitoring the depth (Z-axis) 
+    distance between the ear and the shoulder midpoint.
 
 HOW IT WORKS
-    A shoulder release involves raising the arms laterally,
-    which increases the angle between wrist and shoulder.
-
-      1. Learn a baseline (arms at rest) from the first frame.
-      2. When wrist rises above shoulder by >= ACTIVE_THRESHOLD,
-         enter ACTIVE.
-      3. When the raise exceeds HOLD_THRESHOLD, enter HOLD.
-      4. After holding >= hold_duration_target, enter RETURNING.
-      5. When arms return near baseline, count a rep.
-
-TARGETS
-    Raised/uneven shoulders, rounded shoulders.
+      1. Learn a baseline (neutral head posture) from the first frame.
+      2. When head moves forward (ear Z decreases relative to shoulder Z)
+         by >= ACTIVE_THRESHOLD, enter ACTIVE.
+      3. When the head retracts BACK (Z distance decreases below RETURN_THRESHOLD),
+         count a rep.
 ============================================================
 """
 
@@ -26,67 +19,73 @@ import numpy as np
 
 from app.services.ai.exercises.base import (
     BaseExerciseTracker,
-    ExercisePhase,
 )
-from app.services.ai.geometry import vertical_angle
 
-
-# MediaPipe landmark indices.
+LM_LEFT_EAR = 7
+LM_RIGHT_EAR = 8
 LM_LEFT_SHOULDER = 11
 LM_RIGHT_SHOULDER = 12
-LM_LEFT_WRIST = 15
-LM_RIGHT_WRIST = 16
 
-# Tunable thresholds (degrees).
-ACTIVE_THRESHOLD_DEG = 15.0    # wrist must rise this much to start
-HOLD_THRESHOLD_DEG = 25.0      # full raise depth
-RETURN_THRESHOLD_DEG = 8.0     # close enough to baseline = rest
+# Simple rule-based thresholds
+FORWARD_THRESHOLD = 0.04
+BACK_THRESHOLD = 0.02
+
+# EMA Smoothing
+EMA_ALPHA = 0.3
 
 
 class ShoulderReleaseTracker(BaseExerciseTracker):
     exercise_id = "shoulder_release"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._reps = 0
+        self.phase_name = "READY"
+        self._smoothed_distance = None
+
     def process(self, landmarks: np.ndarray) -> None:
         if landmarks is None or landmarks.shape[0] < 33:
             return
 
-        # Average of both sides for symmetry.
-        left_angle = vertical_angle(
-            landmarks[LM_LEFT_WRIST][:2],
-            landmarks[LM_LEFT_SHOULDER][:2],
-        )
-        right_angle = vertical_angle(
-            landmarks[LM_RIGHT_WRIST][:2],
-            landmarks[LM_RIGHT_SHOULDER][:2],
-        )
-        current_angle = (left_angle + right_angle) / 2.0
+        # Simple rule-based tracking: horizontal distance
+        ear_midpoint_x = (landmarks[LM_LEFT_EAR][0] + landmarks[LM_RIGHT_EAR][0]) / 2.0
+        shoulder_midpoint_x = (landmarks[LM_LEFT_SHOULDER][0] + landmarks[LM_RIGHT_SHOULDER][0]) / 2.0
+        
+        raw_distance = abs(ear_midpoint_x - shoulder_midpoint_x)
 
-        # Lazy baseline.
-        if self._baseline is None:
-            self._baseline = current_angle
+        # Lazy baseline
+        if getattr(self, "_baseline", None) is None:
+            self._baseline = raw_distance
+            self._smoothed_distance = 0.0
+            self.phase_name = "READY"
             return
 
-        # Raising arms makes the angle increase (wrist goes higher).
-        angle_rise = current_angle - self._baseline
+        # Relative movement with EMA smoothing
+        movement_delta = raw_distance - self._baseline
+        self._smoothed_distance = (EMA_ALPHA * movement_delta) + ((1 - EMA_ALPHA) * self._smoothed_distance)
+        forward_distance = self._smoothed_distance
 
-        # ── FSM transitions ──
-        if self._phase == ExercisePhase.IDLE:
-            if angle_rise >= ACTIVE_THRESHOLD_DEG:
-                self._transition(ExercisePhase.ACTIVE, feedback_ar="ممتاز، ارفع ذراعيك")
+        # ── Simple State Machine ──
+        if self.phase_name == "READY" or self.phase_name == "RESET_READY":
+            self.phase_name = "READY"
+            if forward_distance > FORWARD_THRESHOLD:
+                self.phase_name = "HEAD_FORWARD"
+                self._last_feedback_ar = "ممتاز، اسحب رأسك للخلف"
 
-        elif self._phase == ExercisePhase.ACTIVE:
-            if angle_rise >= HOLD_THRESHOLD_DEG:
-                self._transition(ExercisePhase.HOLD, feedback_ar="ثبّت لمدة ٣ ثوان")
-            elif angle_rise < ACTIVE_THRESHOLD_DEG / 2:
-                self._transition(ExercisePhase.IDLE)
+        elif self.phase_name == "HEAD_FORWARD":
+            if forward_distance < BACK_THRESHOLD:
+                self.phase_name = "HEAD_BACK"
+                # Immediately complete the rep based on rules
+                self._reps += 1
+                self.phase_name = "RESET_READY"
+                self._last_feedback_ar = "أحسنت، كرر الحركة"
 
-        elif self._phase == ExercisePhase.HOLD:
-            if angle_rise < HOLD_THRESHOLD_DEG - 8.0:
-                self._transition(ExercisePhase.RETURNING, feedback_ar="أنزل ببطء")
-            elif self._hold_elapsed() >= self._hold_duration_target:
-                self._transition(ExercisePhase.RETURNING, feedback_ar="ممتاز، أنزل ببطء")
-
-        elif self._phase == ExercisePhase.RETURNING:
-            if angle_rise <= RETURN_THRESHOLD_DEG:
-                self._count_rep()
-                self._transition(ExercisePhase.IDLE)
+    def to_rep_state(self) -> dict:
+        return {
+            "exercise_id": self.exercise_id,
+            "reps": self._reps,
+            "phase": self.phase_name,
+            "last_feedback_ar": getattr(self, "_last_feedback_ar", ""),
+            "quality_score": 100,
+            "similarity": 1.0,
+        }

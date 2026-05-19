@@ -11,16 +11,17 @@
     "target_posture_issue": [
       "rounded_shoulders",
       "tight_pecs",
-      "uneven_shoulders"
+      "uneven_shoulders",
+      "forward_head"
     ],
     "target_muscles": [
       "anterior_deltoids",
       "pectorals"
     ],
     "recommended_rom": {},
-    "name_en": "Shoulder Release",
+    "name_en": "Forward Head Correction",
     "name_ar": "تحرير الكتف",
-    "description": "Auto-generated exercise.",
+    "description": "Forward head and shoulder release correction.",
     "reps": 10,
     "duration_s": 75,
     "instructions_ar": []
