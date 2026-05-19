@@ -70,15 +70,10 @@ export function drawSkeleton(
     minVisibility = 0.5,
   } = style;
 
-  // Inner padding so the skeleton never butts up against the edge.
-  const padX = width * 0.08;
-  const padY = height * 0.06;
-  const innerW = width - padX * 2;
-  const innerH = height - padY * 2;
-
+  // No arbitrary inner padding. The skeleton MUST align 1:1 with the video source.
   const mapPt = (lm: Landmark) => ({
-    x: padX + (mirror ? 1 - lm.x : lm.x) * innerW,
-    y: padY + lm.y * innerH,
+    x: mirror ? width - (lm.x * width) : lm.x * width,
+    y: lm.y * height,
     visible: lm.visibility >= minVisibility,
   });
 

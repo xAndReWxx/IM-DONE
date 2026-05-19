@@ -36,49 +36,30 @@ export const CameraOverlay = forwardRef<HTMLVideoElement, Props>(
     const lastLandmarksRef = useRef<Landmark[] | null>(null);
     const clearTimerRef = useRef<number | null>(null);
 
-    // Resize the canvas backing store whenever the wrapper resizes.
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      const wrap = wrapRef.current;
-      if (!canvas || !wrap) return;
-
-      const resize = () => {
-        const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const r = wrap.getBoundingClientRect();
-        
-        const newWidth = Math.floor(r.width * dpr);
-        const newHeight = Math.floor(r.height * dpr);
-        
-        // Only resize if actually changed to prevent instant clearing
-        if (canvas.width !== newWidth || canvas.height !== newHeight) {
-          canvas.width = newWidth;
-          canvas.height = newHeight;
-          canvas.style.width = `${r.width}px`;
-          canvas.style.height = `${r.height}px`;
-          const ctx = canvas.getContext("2d");
-          ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
-          
-          // Redraw immediately after resize if we have valid landmarks
-          if (lastLandmarksRef.current && ctx) {
-            drawSkeleton(ctx, lastLandmarksRef.current, r.width, r.height, { mirror: true });
-          }
-        }
-      };
-
-      resize();
-      const ro = new ResizeObserver(resize);
-      ro.observe(wrap);
-      return () => ro.disconnect();
-    }, []);
-
     // Redraw skeleton whenever new landmarks arrive.
     useEffect(() => {
       const canvas = canvasRef.current;
-      const wrap = wrapRef.current;
-      if (!canvas || !wrap) return;
+      if (!canvas) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const r = wrap.getBoundingClientRect();
+      
+      // Fix #1 & #5: Use video dimension as source of truth for projection
+      // We resolve videoRef safely depending on whether it's a function or object ref.
+      const videoNode = (videoRef !== null && typeof videoRef !== 'function' && 'current' in videoRef) 
+        ? videoRef.current 
+        : null;
+        
+      if (!videoNode || videoNode.videoWidth === 0) return;
+
+      const vw = videoNode.videoWidth;
+      const vh = videoNode.videoHeight;
+
+      // Ensure canvas matches video's intrinsic resolution EXACTLY (Fix #2: Remove double scaling)
+      if (canvas.width !== vw || canvas.height !== vh) {
+        canvas.width = vw;
+        canvas.height = vh;
+        // No ctx.scale(dpr, dpr) here! 1:1 intrinsic pixels.
+      }
       
       if (landmarks && landmarks.length === 33) {
         // Valid frame: clear timeout, update ref, clear canvas, redraw
@@ -87,21 +68,22 @@ export const CameraOverlay = forwardRef<HTMLVideoElement, Props>(
           clearTimerRef.current = null;
         }
         lastLandmarksRef.current = landmarks;
-        ctx.clearRect(0, 0, r.width, r.height);
-        drawSkeleton(ctx, landmarks, r.width, r.height, { mirror: true });
+        ctx.clearRect(0, 0, vw, vh);
+        // Fix #3: mirror=true passes mirroring to skeleton logic: width - (x * width)
+        drawSkeleton(ctx, landmarks, vw, vh, { mirror: true });
       } else {
         // Missing frame: don't clear immediately. Wait 300ms.
         if (!clearTimerRef.current && lastLandmarksRef.current) {
           clearTimerRef.current = window.setTimeout(() => {
-            ctx.clearRect(0, 0, r.width, r.height);
+            ctx.clearRect(0, 0, vw, vh);
             lastLandmarksRef.current = null;
             clearTimerRef.current = null;
           }, 300);
         } else if (!lastLandmarksRef.current) {
-          ctx.clearRect(0, 0, r.width, r.height);
+          ctx.clearRect(0, 0, vw, vh);
         }
       }
-    }, [landmarks]);
+    }, [landmarks, videoRef]);
 
     return (
       <div className="camera" ref={wrapRef}>
