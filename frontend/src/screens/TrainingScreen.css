@@ -1,0 +1,141 @@
+.training-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  pointer-events: none; /* Passes clicks through to background where not explicitly caught */
+}
+
+.training-screen__left {
+  width: 50vw;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.training-screen__header {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.btn-voice {
+  padding: 8px 16px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-mute);
+  background: rgba(0, 0, 0, 0.5); /* slightly dark so it's visible over camera */
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+.btn-voice--on {
+  color: var(--c-good);
+  border-color: rgba(155, 196, 165, 0.5);
+  background: rgba(155, 196, 165, 0.15);
+}
+
+.training-screen__hud {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 32px;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.training-screen__rep-widget {
+  align-self: flex-start;
+  pointer-events: auto;
+}
+
+.training-screen__correction {
+  background: rgba(245, 176, 66, 0.15);
+  border: 1px solid rgba(245, 176, 66, 0.4);
+  padding: 16px;
+  border-radius: var(--r-md);
+  backdrop-filter: blur(8px);
+  max-width: 400px;
+}
+
+.correction-label {
+  color: var(--c-signal);
+  letter-spacing: 0.2em;
+  font-size: 10px;
+}
+
+.correction-text {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: #fff;
+  line-height: 1.5;
+}
+
+.training-screen__right {
+  width: 50vw;
+  height: 100%;
+  background: var(--c-surface);
+  border-left: 1px solid var(--c-line);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.training-screen__right-content {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.exercise-title {
+  font-size: 24px;
+  color: var(--c-text);
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.exercise-video-wrap {
+  width: 100%;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--c-line);
+  background: #000;
+}
+
+.exercise-instructions {
+  background: var(--c-bg);
+  padding: 24px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-line);
+}
+
+.instructions-label {
+  color: var(--c-text-mute);
+}
+
+.instructions-list {
+  margin: 16px 0 0;
+  padding-left: 20px;
+  color: var(--c-text);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .training-screen {
+    flex-direction: column;
+  }
+  .training-screen__left {
+    width: 100vw;
+    height: 50vh;
+  }
+  .training-screen__right {
+    width: 100vw;
+    height: 50vh;
+    border-left: none;
+    border-top: 1px solid var(--c-line);
+  }
+}

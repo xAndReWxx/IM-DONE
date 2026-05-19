@@ -251,19 +251,33 @@ class AIEngine:
             ).model_dump()
 
         scan_buffer = state.scan_buffer.copy()
+        
+        # Extract mobility issues that were confidently detected during the continuous scan
+        # so they can be included in the final report.
+        mobility_issues = state.analyzer._mobility_classifier.process_frame(
+            np.zeros((33, 4))  # dummy frame just to get current state if needed, or we just rely on what was returned during the scan
+        ) if hasattr(state.analyzer, "_mobility_classifier") else []
+        
+        # Actually, let's just grab the issues that were confirmed by the issue tracker
+        # and any mobility issues stored in the classifier.
+        # Wait, the MobilityClassifier evaluates over time. Let's get the latest confident issues from it.
+        # We can just look at what the analyzer returned last, or extract directly.
+        # A better way is to pass the state.analyzer to _run_front_analysis.
+        
         result = await asyncio.to_thread(
-            self._run_front_analysis, scan_buffer
+            self._run_front_analysis, scan_buffer, state.analyzer
         )
         # Clear the buffer after analysis.
         state.scan_buffer = {}
         return result
 
-    def _run_front_analysis(self, scan_buffer: Dict[str, List[List[float]]]) -> dict:
+    def _run_front_analysis(self, scan_buffer: Dict[str, List[List[float]]], analyzer=None) -> dict:
         """
         CPU-bound front-only analysis. Runs in a thread.
 
         Strategy:
           - Front view: assess forward head, shoulder level, spine lean
+          - Continuous: add any mobility issues detected during the scan
         """
         issues: List[ScanIssue] = []
         all_issue_types: set = set()
@@ -326,11 +340,44 @@ class AIEngine:
                     severity="severe" if lean > 20 else "moderate",
                 ))
 
+        # ── Continuous scan mobility issues ──
+        if analyzer is not None and hasattr(analyzer, "_mobility_classifier"):
+            # The classifier processes frames continuously. We just need to check if there 
+            # are any issues currently confident enough to report.
+            # We can re-evaluate the last known state by passing a dummy, or better, 
+            # we should have stored them. Actually, the classifier's process_frame evaluates the history.
+            # The history is still there. We can just call it with the last frame from the buffer,
+            # or just look at the last returned issues from process_frame.
+            # Let's just process the front frame again to get the history-based evaluation.
+            if front is not None:
+                # We need full 33x4, but front is 33x4
+                mob_issues = analyzer._mobility_classifier.process_frame(front)
+                for m_issue in mob_issues:
+                    issue_type = m_issue["issue"]
+                    if issue_type not in all_issue_types:
+                        all_issue_types.add(issue_type)
+                        desc = ""
+                        if issue_type == "restricted_arm_mobility":
+                            side = m_issue.get("side", "unknown")
+                            max_ext = m_issue.get("max_extension", 0.0)
+                            desc = f"Restricted arm mobility detected on the {side} side. Maximum extension was limited to {max_ext:.1f}°."
+                        elif issue_type == "uneven_shoulders":
+                            side = m_issue.get("higher_side", "unknown")
+                            desc = f"Persistent shoulder asymmetry detected. The {side} shoulder is higher."
+                            
+                        issues.append(ScanIssue(
+                            type=issue_type,
+                            description=desc,
+                            severity=m_issue.get("severity", "moderate"),
+                        ))
+
         # ── Build recommendations from detected issues ──
         mapped_issues = [i for i in [
             "forward_head" if "forward_head" in all_issue_types else None,
             "rounded_shoulders" if "shoulder_asymmetry" in all_issue_types else None,
             "slouching" if "spine_lean" in all_issue_types else None,
+            "restricted_arm_mobility" if "restricted_arm_mobility" in all_issue_types else None,
+            "uneven_shoulders" if "uneven_shoulders" in all_issue_types else None,
         ] if i is not None]
 
         recommendations = recommend_for_issues(mapped_issues) if mapped_issues else []
@@ -421,11 +468,18 @@ class AIEngine:
 
             if state.ai_mode == AI_MODE_POSTURE_ANALYSIS:
                 # Full posture analysis (during calibration scan).
-                posture = state.analyzer.analyze(smoothed)
-                posture_score = posture.score
-                posture_issues = posture.issues
-                feedback_ar = posture.feedback_ar
-                recommendations = recommend_for_issues(posture.issues) if posture.issues else []
+                try:
+                    posture = state.analyzer.analyze(smoothed)
+                    posture_score = posture.score
+                    posture_issues = posture.issues
+                    feedback_ar = posture.feedback_ar
+                    recommendations = recommend_for_issues(posture.issues) if posture.issues else []
+                except Exception as e:
+                    logger.exception("posture_analysis_failed")
+                    posture_score = None
+                    posture_issues = []
+                    feedback_ar = ""
+                    recommendations = []
 
             elif state.ai_mode == AI_MODE_EXERCISE_TRACKING:
                 # Exercise tracking only — no posture analysis.
@@ -452,7 +506,10 @@ class AIEngine:
                         exercise_correction = correction
 
             # AI_MODE_IDLE: landmarks only, no analysis.
-
+            if state.ai_mode == AI_MODE_IDLE:
+                # Explicitly guarantee we do not drop the packet
+                pass
+                
             packet = PoseResultPacket(
                 fps=round(state.fps_ema, 1),
                 landmarks=landmark_dicts,
@@ -463,6 +520,8 @@ class AIEngine:
                 rep_state=rep_state,
                 exercise_correction=exercise_correction,
             )
+            
+            logger.debug("pose_packet_sent")
             return packet.model_dump()
 
         except AIEngineError:

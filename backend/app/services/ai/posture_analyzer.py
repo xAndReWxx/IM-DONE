@@ -46,6 +46,7 @@ from app.services.ai.geometry import (
     horizontal_tilt,
     midpoint,
 )
+from app.services.ai.mobility_classifier import MobilityClassifier
 from app.utils.logger import get_logger
 
 
@@ -76,6 +77,7 @@ class PostureResult:
     forward_head_deg: float
     shoulder_tilt_deg: float
     spine_lean_deg: float
+    mobility_issues: List[Dict] = field(default_factory=list)
 
 
 # ── Arabic feedback lines, indexed by issue key ──
@@ -83,6 +85,8 @@ ISSUE_FEEDBACK_AR = {
     "forward_head":      "اسحب ذقنك قليلًا للخلف وارفع رأسك",
     "rounded_shoulders": "اسحب كتفيك للخلف وافتح صدرك",
     "slouching":         "اعتدل في جلستك وحافظ على استقامة ظهرك",
+    "restricted_arm_mobility": "تمديد ذراعك محدود. تمارين الإطالة قد تساعد.",
+    "uneven_shoulders":  "كتفاك غير متوازنين، حاول إرخاء الجانب المرتفع",
 }
 
 GOOD_POSTURE_AR = "وضعيتك ممتازة، استمر هكذا"
@@ -147,6 +151,9 @@ class PostureAnalyzer:
         }
         # Issue persistence debouncer.
         self._issue_tracker = _IssueTracker()
+        
+        # New mobility classifier
+        self._mobility_classifier = MobilityClassifier(fps=15.0)
 
         logger.info(
             "posture_analyzer_initialized",
@@ -238,29 +245,37 @@ class PostureAnalyzer:
         # Recalculate score from confirmed issues to stay consistent.
         if len(issues) != len(raw_issues):
             score = 100
-            for issue in issues:
-                if issue == "forward_head":
-                    score -= 25 if forward_head_deg >= t["forward_head_bad_deg"] else 12
-                elif issue == "rounded_shoulders":
-                    score -= 20 if shoulder_tilt_deg >= t["shoulder_tilt_bad_deg"] else 8
-                elif issue == "slouching":
-                    score -= 25 if spine_lean_deg >= t["spine_lean_bad_deg"] else 10
-            score = max(0, min(100, score))
+        # Update persistent issues
+        confirmed_issues = self._issue_tracker.update(raw_issues)
+        
+        # Process mobility limits (already debounced internally by time window)
+        mobility_issues = self._mobility_classifier.process_frame(landmarks)
+        for issue in mobility_issues:
+            if issue["issue"] not in confirmed_issues:
+                confirmed_issues.append(issue["issue"])
 
-        # ── Pick the single best Arabic feedback line ──
-        if issues:
-            primary_issue = issues[0]
-            feedback_ar = ISSUE_FEEDBACK_AR.get(primary_issue, "")
-        else:
-            feedback_ar = GOOD_POSTURE_AR
+        # Decide on coaching feedback.
+        # Priority: mobility restrictions > spine lean > forward head > shoulder tilt.
+        feedback_ar = GOOD_POSTURE_AR
+        if "restricted_arm_mobility" in confirmed_issues:
+            feedback_ar = ISSUE_FEEDBACK_AR["restricted_arm_mobility"]
+        elif "slouching" in confirmed_issues:
+            feedback_ar = ISSUE_FEEDBACK_AR["slouching"]
+        elif "forward_head" in confirmed_issues:
+            feedback_ar = ISSUE_FEEDBACK_AR["forward_head"]
+        elif "rounded_shoulders" in confirmed_issues:
+            feedback_ar = ISSUE_FEEDBACK_AR["rounded_shoulders"]
+        elif "uneven_shoulders" in confirmed_issues:
+            feedback_ar = ISSUE_FEEDBACK_AR["uneven_shoulders"]
 
         return PostureResult(
             score=score,
-            issues=issues,
+            issues=confirmed_issues,
             feedback_ar=feedback_ar,
             forward_head_deg=round(forward_head_deg, 2),
             shoulder_tilt_deg=round(shoulder_tilt_deg, 2),
             spine_lean_deg=round(spine_lean_deg, 2),
+            mobility_issues=mobility_issues,
         )
 
     # ── Threshold loading ──

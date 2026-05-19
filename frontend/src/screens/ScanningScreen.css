@@ -1,0 +1,100 @@
+.scanning-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none; /* Let clicks pass through to camera layer if needed */
+}
+
+.scanning-screen > * {
+  pointer-events: auto;
+}
+
+/* ── Top bar ── */
+.scanning-screen__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  position: absolute;
+  top: max(12px, var(--safe-top));
+  left: max(16px, var(--safe-left));
+  right: max(16px, var(--safe-right));
+  z-index: 20;
+}
+
+.scanning-screen__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  background: var(--c-bg);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.scanning-screen__back:hover {
+  color: var(--c-text);
+  border-color: var(--c-line-bright);
+  background: var(--c-surface-2);
+}
+
+.scanning-screen__brand-name {
+  color: var(--c-text);
+  letter-spacing: 0.32em;
+  font-weight: 700;
+  background: var(--c-bg);
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+}
+
+.scanning-screen__voice {
+  padding: 10px 14px;
+  min-height: 44px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-mute);
+  background: var(--c-bg);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.scanning-screen__voice:hover { color: var(--c-text); }
+.scanning-screen__voice--on {
+  color: var(--c-good);
+  border-color: rgba(155,196,165,0.35);
+  background: rgba(155,196,165,0.06);
+}
+
+/* ── Camera Errors ── */
+.scanning-screen__cam-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--c-surface);
+  padding: 24px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-line);
+  text-align: center;
+}
+
+.scanning-screen__cam-error-msg {
+  color: var(--c-text-dim);
+  font-size: 14px;
+}
+
+.scanning-screen__cam-retry {
+  margin-top: 12px;
+  padding: 8px 24px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+}
+.scanning-screen__cam-retry:hover {
+  background: var(--c-surface-2);
+}

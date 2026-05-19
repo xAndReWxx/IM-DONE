@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { LandingScreen } from "@/screens/LandingScreen";
-import { ScannerScreen } from "@/screens/ScannerScreen";
+import { SessionManager } from "@/screens/SessionManager";
 
 type View = "landing" | "scanner";
 
@@ -19,7 +19,7 @@ export default function App() {
   const [view, setView] = useState<View>("landing");
 
   if (view === "scanner") {
-    return <ScannerScreen onBack={() => setView("landing")} />;
+    return <SessionManager onBack={() => setView("landing")} />;
   }
   return <LandingScreen onStart={() => setView("scanner")} />;
 }

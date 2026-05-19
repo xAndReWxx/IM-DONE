@@ -22,75 +22,69 @@ ADDING A NEW EXERCISE
 ============================================================
 """
 
+import json
+from pathlib import Path
 from typing import Dict, List
 from app.models.packets import ExerciseCard
+from app.utils.logger import get_logger
 
+logger = get_logger(__name__)
 
-# ── The catalog. Keys are the stable exercise IDs. ──
-EXERCISES: Dict[str, ExerciseCard] = {
-    "chin_tuck": ExerciseCard(
-        id="chin_tuck",
-        name_ar="شد الذقن",
-        name_en="Chin Tuck",
-        reps=10,
-        duration_s=60,
-        instructions_ar=[
-            "اجلس أو قف بظهر مستقيم.",
-            "اسحب ذقنك للخلف ببطء، كأنك ترسم ذقنًا مزدوجًا.",
-            "ثبّت لمدة ٣ ثوانٍ، ثم استرخِ.",
-            "كرّر التمرين بهدوء وبدون توتر.",
-        ],
-    ),
-    "wall_angel": ExerciseCard(
-        id="wall_angel",
-        name_ar="ملاك الحائط",
-        name_en="Wall Angel",
-        reps=10,
-        duration_s=90,
-        instructions_ar=[
-            "قف وظهرك ملاصق للحائط.",
-            "ارفع ذراعيك على شكل حرف W ثم Y.",
-            "حافظ على ملامسة ظهرك ومرفقيك للحائط.",
-            "حرّك الذراعين ببطء، ثم عُد إلى الوضع الأول.",
-        ],
-    ),
-    "thoracic_extension": ExerciseCard(
-        id="thoracic_extension",
-        name_ar="تمديد الظهر العلوي",
-        name_en="Thoracic Extension",
-        reps=8,
-        duration_s=60,
-        instructions_ar=[
-            "اجلس على كرسي مع وضع يديك خلف رأسك.",
-            "افرد ظهرك للخلف برفق، ولا تجبر الحركة.",
-            "اشعر بفتح الصدر ومدّ الجزء العلوي من الظهر.",
-            "ثبّت لمدة ٣ ثوانٍ، ثم استرخِ.",
-        ],
-    ),
-    "shoulder_release": ExerciseCard(
-        id="shoulder_release",
-        name_ar="تحرير الكتف",
-        name_en="Shoulder Release",
-        reps=10,
-        duration_s=75,
-        instructions_ar=[
-            "قف بظهر مستقيم وذراعيك على جانبيك.",
-            "ارفع ذراعيك جانبياً حتى مستوى الكتف.",
-            "ثبّت لمدة ٣ ثوانٍ مع التنفس العميق.",
-            "أنزل ذراعيك ببطء إلى الوضع الأصلي.",
-        ],
-    ),
-}
+EXERCISES: Dict[str, ExerciseCard] = {}
+ISSUE_TO_EXERCISES: Dict[str, List[str]] = {}
 
+def _load_catalog():
+    """
+    Dynamically discover and load exercises from the generated JSON datasets.
+    """
+    global EXERCISES, ISSUE_TO_EXERCISES
+    EXERCISES.clear()
+    ISSUE_TO_EXERCISES.clear()
 
-# ── Mapping: posture issue → list of exercise IDs to recommend ──
-# The first ID is the primary recommendation. Use stable issue keys
-# that match what the PostureAnalyzer emits.
-ISSUE_TO_EXERCISES: Dict[str, List[str]] = {
-    "forward_head": ["chin_tuck", "wall_angel"],
-    "rounded_shoulders": ["shoulder_release", "wall_angel", "thoracic_extension"],
-    "slouching": ["thoracic_extension", "wall_angel", "shoulder_release"],
-}
+    # Find datasets dir
+    backend_root = Path(__file__).resolve().parent.parent.parent.parent
+    datasets_dir = backend_root / "exercise_datasets"
+    
+    if not datasets_dir.exists():
+        logger.warning("no_exercise_datasets_dir_found")
+        return
+
+    for json_path in datasets_dir.glob("*.json"):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+            ex_id = data.get("exercise")
+            meta = data.get("metadata", {})
+            
+            if not ex_id or not meta:
+                continue
+                
+            # Create Card
+            card = ExerciseCard(
+                id=ex_id,
+                name_en=meta.get("name_en", ex_id.replace("_", " ").title()),
+                name_ar=meta.get("name_ar", ex_id.replace("_", " ").title()),
+                reps=meta.get("reps", 10),
+                duration_s=meta.get("duration_s", 60),
+                instructions_ar=meta.get("instructions_ar", []),
+            )
+            EXERCISES[ex_id] = card
+            
+            # Map target issues
+            issues = meta.get("target_posture_issue", [])
+            for issue in issues:
+                if issue not in ISSUE_TO_EXERCISES:
+                    ISSUE_TO_EXERCISES[issue] = []
+                ISSUE_TO_EXERCISES[issue].append(ex_id)
+                
+        except Exception as e:
+            logger.error("failed_to_load_exercise_dataset", file=json_path.name, error=str(e))
+            
+    logger.info("exercise_catalog_loaded", count=len(EXERCISES))
+
+# Load immediately on module import
+_load_catalog()
 
 
 def get_exercise(exercise_id: str) -> ExerciseCard | None:

@@ -17,12 +17,13 @@
       "traps",
       "rhomboids"
     ],
-    "recommended_rom": {
-      "arm_raise": [
-        40,
-        110
-      ]
-    }
+    "recommended_rom": {},
+    "name_en": "T-Fly",
+    "name_ar": "تمرين حرف T",
+    "description": "Auto-generated exercise.",
+    "reps": 10,
+    "duration_s": 60,
+    "instructions_ar": []
   },
   "normalization": {
     "method": "hip_center_torso_scale",

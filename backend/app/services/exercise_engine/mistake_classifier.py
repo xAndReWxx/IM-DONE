@@ -41,6 +41,7 @@ def classify_mistakes(
     mistakes = []
     
     # Common ROM checks
+    restricted_rom = False
     for i, name in enumerate(user_angle_names):
         if name in ref_ranges:
             user_min = np.min(user_angles[i])
@@ -51,9 +52,30 @@ def classify_mistakes(
             ref_range = ref["max"] - ref["min"]
             
             if ref_range > 15.0 and user_range < (ref_range * 0.6):
-                # Only report once for general ROM.
-                if "Complete the full range of motion." not in mistakes:
-                    mistakes.append("Complete the full range of motion.")
+                restricted_rom = True
+
+    if restricted_rom:
+        mistakes.append("Move slowly and comfortably. Try to complete the full range of motion.")
+
+    # Global Arm Mobility & Asymmetry Checks
+    elbow_l = _get_angle_row("elbow_left", user_angle_names, user_angles)
+    elbow_r = _get_angle_row("elbow_right", user_angle_names, user_angles)
+    
+    if elbow_l is not None and elbow_r is not None:
+        max_ext_l = np.max(elbow_l)
+        max_ext_r = np.max(elbow_r)
+        
+        # Check for incomplete arm extension
+        if max_ext_l < 140 or max_ext_r < 140:
+            if "Try extending your arm slightly more." not in mistakes:
+                mistakes.append("Try extending your arm slightly more.")
+        
+        # Check for asymmetric movement
+        diff = abs(max_ext_l - max_ext_r)
+        if diff > 20:
+            if "Try extending your arm slightly more." not in mistakes:
+                mistakes.append("Try extending your arm slightly more.")
+            mistakes.append("Relax your shoulder. Make sure both arms are moving evenly.")
 
     if exercise_id == "t_fly":
         mistakes.extend(_check_t_fly(user_angles, user_angle_names))

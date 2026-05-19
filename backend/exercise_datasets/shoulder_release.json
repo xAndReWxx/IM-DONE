@@ -10,18 +10,20 @@
     "movement_type": "mobility",
     "target_posture_issue": [
       "rounded_shoulders",
-      "tight_pecs"
+      "tight_pecs",
+      "uneven_shoulders"
     ],
     "target_muscles": [
       "anterior_deltoids",
       "pectorals"
     ],
-    "recommended_rom": {
-      "arm_raise": [
-        0,
-        90
-      ]
-    }
+    "recommended_rom": {},
+    "name_en": "Shoulder Release",
+    "name_ar": "تحرير الكتف",
+    "description": "Auto-generated exercise.",
+    "reps": 10,
+    "duration_s": 75,
+    "instructions_ar": []
   },
   "normalization": {
     "method": "hip_center_torso_scale",

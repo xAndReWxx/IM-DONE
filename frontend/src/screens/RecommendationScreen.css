@@ -1,0 +1,127 @@
+.recommendation-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--c-bg); /* Opaque background to hide the camera layer completely */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.recommendation-screen__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px max(24px, var(--safe-right)) 24px max(24px, var(--safe-left));
+  border-bottom: 1px solid var(--c-line);
+  background: var(--c-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.recommendation-screen__header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-back {
+  padding: 8px 16px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  color: var(--c-text-dim);
+  transition: all 0.2s ease;
+}
+.btn-back:hover {
+  color: var(--c-text);
+  border-color: var(--c-line-bright);
+}
+
+.brand {
+  color: var(--c-text);
+  letter-spacing: 0.3em;
+  font-weight: bold;
+}
+
+.btn-rescan {
+  padding: 8px 16px;
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  border-radius: var(--r-sm);
+  transition: background 0.2s ease;
+}
+.btn-rescan:hover {
+  background: var(--c-surface-3);
+}
+
+.recommendation-screen__main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 32px;
+  padding: 32px max(32px, var(--safe-right)) 32px max(32px, var(--safe-left));
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .recommendation-screen__main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section-title {
+  color: var(--c-text-mute);
+  margin-bottom: 24px;
+}
+
+.recommendation-screen__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.summary-panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.recommendation-screen__exercises {
+  display: flex;
+  flex-direction: column;
+}
+
+.exercises-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.exercises-count {
+  color: var(--c-text-dim);
+  background: var(--c-surface);
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+}
+
+.exercises-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.exercises-empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--c-text-dim);
+  background: var(--c-surface);
+  border-radius: var(--r-md);
+  border: 1px dashed var(--c-line);
+}

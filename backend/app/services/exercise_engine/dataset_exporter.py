@@ -136,37 +136,75 @@ def export_dataset(
         })
 
     # Default metadata based on exercise ID
-    metadata_info = {
-        "t_fly": {
-            "difficulty": "beginner",
-            "movement_type": "mobility",
-            "target_posture_issue": ["rounded_shoulders", "forward_head"],
-            "target_muscles": ["rear_delts", "traps", "rhomboids"],
-            "recommended_rom": {"arm_raise": [40, 110]}
-        },
-        "shoulder_release": {
-            "difficulty": "beginner",
-            "movement_type": "mobility",
-            "target_posture_issue": ["rounded_shoulders", "tight_pecs"],
-            "target_muscles": ["anterior_deltoids", "pectorals"],
-            "recommended_rom": {"arm_raise": [0, 90]}
-        },
-        "chin_tuck": {
-            "difficulty": "beginner",
-            "movement_type": "correction",
-            "target_posture_issue": ["forward_head"],
-            "target_muscles": ["deep_cervical_flexors"],
-            "recommended_rom": {"neck_retraction": [10, 30]}
-        }
-    }
-    
-    ex_meta = metadata_info.get(metadata.exercise_id, {
+    ex_meta = {
         "difficulty": "unknown",
         "movement_type": "unknown",
         "target_posture_issue": [],
         "target_muscles": [],
-        "recommended_rom": {}
-    })
+        "recommended_rom": {},
+        "name_en": metadata.exercise_id.replace("_", " ").title(),
+        "name_ar": metadata.exercise_id.replace("_", " ").title(),
+        "description": "Auto-generated exercise.",
+        "reps": 10,
+        "duration_s": 60,
+        "instructions_ar": [],
+    }
+
+    # Try to load dynamic metadata from exercise_videos/{exercise_id}/metadata.json
+    video_dir = metadata.path.parent
+    if video_dir.name == metadata.exercise_id:
+        # It's inside a folder named after the exercise
+        meta_file = video_dir / "metadata.json"
+    else:
+        # Or maybe right next to the video
+        meta_file = video_dir / f"{metadata.exercise_id}_metadata.json"
+        if not meta_file.exists():
+            # Try a subfolder
+            meta_file = video_dir / metadata.exercise_id / "metadata.json"
+
+    if meta_file.exists():
+        try:
+            with open(meta_file, "r", encoding="utf-8") as f:
+                loaded_meta = json.load(f)
+                ex_meta.update(loaded_meta)
+        except Exception as e:
+            logger.error("metadata_load_failed", file=str(meta_file), error=str(e))
+    else:
+        # Fallback hardcoded defaults if no JSON is found
+        metadata_info = {
+            "t_fly": {
+                "difficulty": "beginner",
+                "movement_type": "mobility",
+                "target_posture_issue": ["rounded_shoulders", "forward_head"],
+                "target_muscles": ["rear_delts", "traps", "rhomboids"],
+                "name_en": "T-Fly",
+                "name_ar": "تمرين حرف T",
+                "reps": 10,
+                "duration_s": 60,
+            },
+            "shoulder_release": {
+                "difficulty": "beginner",
+                "movement_type": "mobility",
+                "target_posture_issue": ["rounded_shoulders", "tight_pecs", "uneven_shoulders"],
+                "target_muscles": ["anterior_deltoids", "pectorals"],
+                "name_en": "Shoulder Release",
+                "name_ar": "تحرير الكتف",
+                "reps": 10,
+                "duration_s": 75,
+            },
+            "chin_tuck": {
+                "difficulty": "beginner",
+                "movement_type": "correction",
+                "target_posture_issue": ["forward_head"],
+                "target_muscles": ["deep_cervical_flexors"],
+                "name_en": "Chin Tuck",
+                "name_ar": "شد الذقن",
+                "reps": 10,
+                "duration_s": 60,
+            }
+        }
+        if metadata.exercise_id in metadata_info:
+            ex_meta.update(metadata_info[metadata.exercise_id])
 
     # Per-frame data.
     frames_data: List[dict] = []

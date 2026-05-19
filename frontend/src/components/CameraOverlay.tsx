@@ -33,6 +33,9 @@ export const CameraOverlay = forwardRef<HTMLVideoElement, Props>(
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
 
+    const lastLandmarksRef = useRef<Landmark[] | null>(null);
+    const clearTimerRef = useRef<number | null>(null);
+
     // Resize the canvas backing store whenever the wrapper resizes.
     useEffect(() => {
       const canvas = canvasRef.current;
@@ -42,12 +45,24 @@ export const CameraOverlay = forwardRef<HTMLVideoElement, Props>(
       const resize = () => {
         const dpr = Math.min(2, window.devicePixelRatio || 1);
         const r = wrap.getBoundingClientRect();
-        canvas.width = Math.floor(r.width * dpr);
-        canvas.height = Math.floor(r.height * dpr);
-        canvas.style.width = `${r.width}px`;
-        canvas.style.height = `${r.height}px`;
-        const ctx = canvas.getContext("2d");
-        ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+        
+        const newWidth = Math.floor(r.width * dpr);
+        const newHeight = Math.floor(r.height * dpr);
+        
+        // Only resize if actually changed to prevent instant clearing
+        if (canvas.width !== newWidth || canvas.height !== newHeight) {
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          canvas.style.width = `${r.width}px`;
+          canvas.style.height = `${r.height}px`;
+          const ctx = canvas.getContext("2d");
+          ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+          
+          // Redraw immediately after resize if we have valid landmarks
+          if (lastLandmarksRef.current && ctx) {
+            drawSkeleton(ctx, lastLandmarksRef.current, r.width, r.height, { mirror: true });
+          }
+        }
       };
 
       resize();
@@ -64,9 +79,27 @@ export const CameraOverlay = forwardRef<HTMLVideoElement, Props>(
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       const r = wrap.getBoundingClientRect();
-      ctx.clearRect(0, 0, r.width, r.height);
+      
       if (landmarks && landmarks.length === 33) {
+        // Valid frame: clear timeout, update ref, clear canvas, redraw
+        if (clearTimerRef.current) {
+          window.clearTimeout(clearTimerRef.current);
+          clearTimerRef.current = null;
+        }
+        lastLandmarksRef.current = landmarks;
+        ctx.clearRect(0, 0, r.width, r.height);
         drawSkeleton(ctx, landmarks, r.width, r.height, { mirror: true });
+      } else {
+        // Missing frame: don't clear immediately. Wait 300ms.
+        if (!clearTimerRef.current && lastLandmarksRef.current) {
+          clearTimerRef.current = window.setTimeout(() => {
+            ctx.clearRect(0, 0, r.width, r.height);
+            lastLandmarksRef.current = null;
+            clearTimerRef.current = null;
+          }, 300);
+        } else if (!lastLandmarksRef.current) {
+          ctx.clearRect(0, 0, r.width, r.height);
+        }
       }
     }, [landmarks]);
 

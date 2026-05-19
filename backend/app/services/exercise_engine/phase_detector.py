@@ -85,6 +85,10 @@ EXERCISE_ANGLES = {
         (13, 11, 23),   # left_elbow → left_shoulder → left_hip
         (14, 12, 24),   # right_elbow → right_shoulder → right_hip
     ],
+    "elbow": [
+        (11, 13, 15),   # left_shoulder → left_elbow → left_wrist
+        (12, 14, 16),   # right_shoulder → right_elbow → right_wrist
+    ],
 }
 
 # Fallback: use shoulder-hip-knee angle.
